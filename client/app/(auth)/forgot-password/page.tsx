@@ -1,62 +1,78 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 
-import {
-  AuthButton,
-  AuthError,
-  AuthField,
-  AuthShell,
-  AuthSuccess,
-} from "@/components/auth-shell";
+import { AuthShell } from "@/components/AuthShell";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { ApiError, authApi } from "@/lib/api";
 
+type ForgotPasswordForm = {
+    email: string;
+};
+
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<ForgotPasswordForm>({
+        defaultValues: { email: "" },
+    });
 
-    try {
-      const response = await authApi.forgotPassword(email);
-      setSuccess(response.message);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to send reset link");
-    } finally {
-      setLoading(false);
+    async function onSubmit(data: ForgotPasswordForm) {
+        setError(null);
+        setSuccess(null);
+        try {
+            const response = await authApi.forgotPassword(data.email);
+            setSuccess(response.message);
+        } catch (err) {
+            setError(
+                err instanceof ApiError
+                    ? err.message
+                    : "Unable to send reset link",
+            );
+        }
     }
-  }
 
-  return (
-    <AuthShell
-      title="Forgot password"
-      subtitle="We'll send you a reset link if the account exists"
-      footer={
-        <Link href="/login" className="font-medium text-zinc-900 dark:text-zinc-100">
-          Back to login
-        </Link>
-      }
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <AuthError message={error} />
-        <AuthSuccess message={success} />
-        <AuthField
-          id="email"
-          label="Email"
-          type="email"
-          value={email}
-          onChange={setEmail}
-          autoComplete="email"
-        />
-        <AuthButton loading={loading}>Send reset link</AuthButton>
-      </form>
-    </AuthShell>
-  );
+    return (
+        <AuthShell
+            title="Forgot password"
+            subtitle="We'll send you a reset link if the account exists"
+            footer={
+                <Link
+                    href="/login"
+                    className="font-medium text-zinc-900 dark:text-zinc-100"
+                >
+                    Back to login
+                </Link>
+            }
+        >
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <Alert message={error} />
+                <Alert message={success} variant="success" />
+                <Input
+                    id="email"
+                    label="Email"
+                    type="email"
+                    autoComplete="email"
+                    error={errors.email?.message}
+                    {...register("email", { required: "Email is required" })}
+                />
+                <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex w-full justify-center py-2.5"
+                >
+                    {isSubmitting ? "Please wait..." : "Send reset link"}
+                </Button>
+            </form>
+        </AuthShell>
+    );
 }

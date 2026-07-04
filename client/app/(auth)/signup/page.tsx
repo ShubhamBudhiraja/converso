@@ -2,72 +2,100 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 
-import {
-  AuthButton,
-  AuthError,
-  AuthField,
-  AuthShell,
-} from "@/components/auth-shell";
+import { AuthShell } from "@/components/AuthShell";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { ApiError, authApi } from "@/lib/api";
+import { useUserStore } from "@/stores/user-store";
+
+type SignupForm = {
+    email: string;
+    password: string;
+};
 
 export default function SignupPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+    const router = useRouter();
+    const fetchUser = useUserStore((state) => state.fetchUser);
+    const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setLoading(true);
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<SignupForm>({
+        defaultValues: { email: "", password: "" },
+    });
 
-    try {
-      await authApi.signup(email, password);
-      router.push("/dashboard");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to create account");
-    } finally {
-      setLoading(false);
+    async function onSubmit(data: SignupForm) {
+        setError(null);
+        try {
+            await authApi.signup(data.email, data.password);
+            await fetchUser();
+            router.push("/home");
+        } catch (err) {
+            setError(
+                err instanceof ApiError
+                    ? err.message
+                    : "Unable to create account",
+            );
+        }
     }
-  }
 
-  return (
-    <AuthShell
-      title="Create account"
-      subtitle="Start using Converso"
-      footer={
-        <>
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium text-zinc-900 dark:text-zinc-100">
-            Log in
-          </Link>
-        </>
-      }
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <AuthError message={error} />
-        <AuthField
-          id="email"
-          label="Email"
-          type="email"
-          value={email}
-          onChange={setEmail}
-          autoComplete="email"
-        />
-        <AuthField
-          id="password"
-          label="Password"
-          type="password"
-          value={password}
-          onChange={setPassword}
-          autoComplete="new-password"
-        />
-        <p className="text-xs text-zinc-500">Password must be at least 8 characters.</p>
-        <AuthButton loading={loading}>Sign up</AuthButton>
-      </form>
-    </AuthShell>
-  );
+    return (
+        <AuthShell
+            title="Create account"
+            subtitle="Start using Converso"
+            footer={
+                <>
+                    Already have an account?{" "}
+                    <Link
+                        href="/login"
+                        className="font-medium text-zinc-900 dark:text-zinc-100"
+                    >
+                        Log in
+                    </Link>
+                </>
+            }
+        >
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <Alert message={error} />
+                <Input
+                    id="email"
+                    label="Email"
+                    type="email"
+                    autoComplete="email"
+                    error={errors.email?.message}
+                    {...register("email", { required: "Email is required" })}
+                />
+                <Input
+                    id="password"
+                    label="Password"
+                    type="password"
+                    autoComplete="new-password"
+                    error={errors.password?.message}
+                    {...register("password", {
+                        required: "Password is required",
+                        minLength: {
+                            value: 8,
+                            message: "Password must be at least 8 characters",
+                        },
+                    })}
+                />
+                <p className="text-xs text-zinc-500">
+                    Password must be at least 8 characters.
+                </p>
+                <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex w-full justify-center py-2.5"
+                >
+                    {isSubmitting ? "Please wait..." : "Sign up"}
+                </Button>
+            </form>
+        </AuthShell>
+    );
 }
