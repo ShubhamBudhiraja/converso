@@ -11,7 +11,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-zinc-500">
+      <div className="flex h-dvh items-center justify-center text-sm text-zinc-500">
         Loading...
       </div>
     );
@@ -22,12 +22,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="relative flex h-dvh overflow-hidden">
       <AppHeader email={user.email} onLogout={logout} />
-      <div className="flex min-h-0 flex-1">
-        <AppSidebar />
-        <main className="flex-1 overflow-auto bg-white p-6 dark:bg-black">{children}</main>
-      </div>
+      <AppSidebar />
+      <main className="h-dvh min-h-0 flex-1 overflow-y-auto bg-white p-6 pt-14 dark:bg-black">
+        {children}
+      </main>
     </div>
   );
 }

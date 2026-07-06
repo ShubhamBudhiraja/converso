@@ -21,7 +21,7 @@ export function AppSidebar() {
     const pathname = usePathname();
 
     return (
-        <aside className="flex h-full w-60 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+        <aside className="mt-14 flex h-[calc(100dvh-3.5rem)] w-60 shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
             <nav className="flex flex-1 flex-col gap-1 p-3">
                 {navItems.map((item) => {
                     const active = isActive(pathname, item.href);
