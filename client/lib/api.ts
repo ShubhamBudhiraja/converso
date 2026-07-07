@@ -1,3 +1,11 @@
+import {
+  handleSessionExpired,
+  refreshAccessToken,
+  SESSION_EXPIRED_MESSAGE,
+  SessionExpiredError,
+  shouldRefreshOn401,
+} from "@/lib/auth-session";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 export class ApiError extends Error {
@@ -8,6 +16,13 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export { SessionExpiredError };
+
+export function getApiErrorMessage(err: unknown, fallback: string): string | null {
+  if (err instanceof SessionExpiredError) return null;
+  return err instanceof ApiError ? err.message : fallback;
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -26,6 +41,7 @@ async function parseError(response: Response): Promise<string> {
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
+  hasRetried = false,
 ): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -35,6 +51,14 @@ export async function apiRequest<T>(
       ...options.headers,
     },
   });
+
+  if (response.status === 401 && !hasRetried && shouldRefreshOn401(path)) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return apiRequest<T>(path, options, true);
+    }
+    handleSessionExpired(SESSION_EXPIRED_MESSAGE);
+  }
 
   if (!response.ok) {
     throw new ApiError(await parseError(response), response.status);
@@ -120,6 +144,7 @@ export type PhoneNumber = {
   label: string | null;
   status: string;
   elevenlabs_phone_number_id: string | null;
+  elevenlabs_connection_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -144,6 +169,204 @@ export type TwilioAvailableNumber = {
   voice_enabled: boolean;
   sms_enabled: boolean;
   mms_enabled: boolean;
+};
+
+export type ElevenLabsConnection = {
+  id: string;
+  api_key_masked: string;
+  label: string | null;
+  is_valid: boolean;
+  last_tested_at: string | null;
+  agent_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ElevenLabsAgent = {
+  agent_id: string;
+  name: string;
+  created_at_unix_secs: number | null;
+};
+
+export type ElevenLabsAgentDetail = ElevenLabsAgent & {
+  system_prompt: string | null;
+  first_message: string | null;
+  voice_id: string | null;
+  llm: string | null;
+};
+
+export type ElevenLabsVoice = {
+  voice_id: string;
+  name: string;
+  language: string;
+  gender: string;
+  accent: string | null;
+  description: string | null;
+};
+
+export type ElevenLabsTestResponse = {
+  success: boolean;
+  message: string;
+  subscription_tier?: string | null;
+  character_count?: number | null;
+  character_limit?: number | null;
+};
+
+export const aiProviderApi = {
+  listConnections() {
+    return apiRequest<ElevenLabsConnection[]>("/ai/elevenlabs/connections");
+  },
+
+  getConnection(id: string) {
+    return apiRequest<ElevenLabsConnection>(`/ai/elevenlabs/connections/${id}`);
+  },
+
+  createConnection(data: { api_key: string; label?: string }) {
+    return apiRequest<ElevenLabsConnection>("/ai/elevenlabs/connections", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateConnection(id: string, data: { label?: string }) {
+    return apiRequest<ElevenLabsConnection>(`/ai/elevenlabs/connections/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteConnection(id: string) {
+    return apiRequest<MessageResponse>(`/ai/elevenlabs/connections/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  bulkDeleteConnections(ids: string[]) {
+    return apiRequest<BulkDeleteResponse>("/ai/elevenlabs/connections/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  testUnsavedCredentials(api_key: string) {
+    return apiRequest<ElevenLabsTestResponse>("/ai/elevenlabs/connections/test", {
+      method: "POST",
+      body: JSON.stringify({ api_key }),
+    });
+  },
+
+  testConnection(id: string) {
+    return apiRequest<ElevenLabsTestResponse>(`/ai/elevenlabs/connections/${id}/test`, {
+      method: "POST",
+    });
+  },
+
+  listAgents(connectionId: string) {
+    return apiRequest<ElevenLabsAgent[]>(
+      `/ai/elevenlabs/connections/${connectionId}/agents`,
+    );
+  },
+
+  listVoices(connectionId: string) {
+    return apiRequest<ElevenLabsVoice[]>(
+      `/ai/elevenlabs/connections/${connectionId}/voices`,
+    );
+  },
+
+  createAgent(
+    connectionId: string,
+    data: {
+      name: string;
+      system_prompt?: string;
+      first_message?: string;
+      voice_id: string;
+      llm?: string;
+    },
+  ) {
+    return apiRequest<ElevenLabsAgentDetail>(
+      `/ai/elevenlabs/connections/${connectionId}/agents`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
+  },
+
+  getAgent(connectionId: string, agentId: string) {
+    return apiRequest<ElevenLabsAgentDetail>(
+      `/ai/elevenlabs/connections/${connectionId}/agents/${agentId}`,
+    );
+  },
+
+  updateAgent(
+    connectionId: string,
+    agentId: string,
+    data: {
+      name?: string;
+      system_prompt?: string;
+      first_message?: string;
+      voice_id?: string;
+      llm?: string;
+    },
+  ) {
+    return apiRequest<ElevenLabsAgentDetail>(
+      `/ai/elevenlabs/connections/${connectionId}/agents/${agentId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      },
+    );
+  },
+
+  deleteAgent(connectionId: string, agentId: string) {
+    return apiRequest<MessageResponse>(
+      `/ai/elevenlabs/connections/${connectionId}/agents/${agentId}`,
+      {
+        method: "DELETE",
+      },
+    );
+  },
+};
+
+export type CallerAgent = {
+  id: string;
+  name: string;
+  twilio_connection_id: string;
+  twilio_connection_label: string | null;
+  phone_number_id: string;
+  phone_number: string;
+  phone_label: string | null;
+  elevenlabs_connection_id: string;
+  elevenlabs_connection_label: string | null;
+  elevenlabs_agent_id: string;
+  elevenlabs_agent_name: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export const callerAgentApi = {
+  listAgents() {
+    return apiRequest<CallerAgent[]>("/agents");
+  },
+
+  createAgent(data: {
+    name: string;
+    twilio_connection_id: string;
+    phone_number_id: string;
+    elevenlabs_connection_id: string;
+    elevenlabs_agent_id: string;
+  }) {
+    return apiRequest<CallerAgent>("/agents", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteAgent(id: string) {
+    return apiRequest<MessageResponse>(`/agents/${id}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 export type NumberType = "local" | "toll_free" | "mobile";
@@ -258,6 +481,13 @@ export const phoneApi = {
     return apiRequest<BulkDeleteResponse>("/phone/numbers/bulk-delete", {
       method: "POST",
       body: JSON.stringify({ ids }),
+    });
+  },
+
+  registerWithElevenLabs(id: string, data: { elevenlabs_connection_id: string }) {
+    return apiRequest<PhoneNumber>(`/phone/numbers/${id}/register-elevenlabs`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   },
 };

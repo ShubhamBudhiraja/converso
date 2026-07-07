@@ -101,8 +101,13 @@ class PhoneNumberResponse(BaseModel):
     label: Optional[str]
     status: str
     elevenlabs_phone_number_id: Optional[str]
+    elevenlabs_connection_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+
+
+class RegisterElevenLabsRequest(BaseModel):
+    elevenlabs_connection_id: str = Field(min_length=1)
 
 
 class MessageResponse(BaseModel):

@@ -76,19 +76,15 @@ export function TableCell({
 
 export function TableEmptyState({
   colSpan,
-  loading,
-  loadingMessage,
   emptyMessage,
 }: {
   colSpan: number;
-  loading: boolean;
-  loadingMessage: string;
   emptyMessage: string;
 }) {
   return (
     <TableRow>
       <TableCell className="text-center text-zinc-500" colSpan={colSpan}>
-        {loading ? loadingMessage : emptyMessage}
+        {emptyMessage}
       </TableCell>
     </TableRow>
   );

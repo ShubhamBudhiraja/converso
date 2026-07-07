@@ -6,7 +6,15 @@ from sqlalchemy import text
 
 from app.api.v1.router import api_router
 from app.database.connection import Base, engine
-from app.models import password_reset, phone_number, session, twilio_connection, user  # noqa: F401
+from app.models import (
+    caller_agent,
+    elevenlabs_connection,
+    password_reset,
+    phone_number,
+    session,
+    twilio_connection,
+    user,
+)  # noqa: F401
 
 
 def _migrate_twilio_connections() -> None:
@@ -25,10 +33,39 @@ def _migrate_twilio_connections() -> None:
         )
 
 
+def _migrate_phone_numbers_elevenlabs() -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "ALTER TABLE phone_numbers "
+                "ADD COLUMN IF NOT EXISTS elevenlabs_connection_id VARCHAR"
+            )
+        )
+
+
+def _migrate_caller_agents() -> None:
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS conversation_agents CASCADE"))
+        conn.execute(
+            text(
+                "ALTER TABLE phone_numbers "
+                "DROP COLUMN IF EXISTS assigned_agent_id"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE caller_agents "
+                "DROP COLUMN IF EXISTS label"
+            )
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _migrate_twilio_connections()
+    _migrate_phone_numbers_elevenlabs()
+    _migrate_caller_agents()
     yield
 
 

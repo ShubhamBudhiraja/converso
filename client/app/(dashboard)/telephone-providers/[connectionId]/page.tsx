@@ -9,10 +9,11 @@ import { AccountDetailsCard } from "@/components/TelephoneProviders/AccountDetai
 import { ImportNumberModal } from "@/components/TelephoneProviders/ImportNumberModal";
 import { PhoneNumbersTable } from "@/components/TelephoneProviders/PhoneNumbersTable";
 import { PurchaseNumberModal } from "@/components/TelephoneProviders/PurchaseNumberModal";
+import { RegisterElevenLabsModal } from "@/components/TelephoneProviders/RegisterElevenLabsModal";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { BulkActionsBar } from "@/components/ui/PageHeader";
-import { PhoneNumber } from "@/lib/api";
+import { ElevenLabsConnection, PhoneNumber, aiProviderApi } from "@/lib/api";
 import { usePhoneStore } from "@/stores/phone-store";
 
 export default function TelephoneProviderNumbersPage() {
@@ -42,25 +43,45 @@ export default function TelephoneProviderNumbersPage() {
         clearPhoneNumberSelection,
         clearAvailableNumbers,
         resetDetail,
+        registerWithElevenLabs,
     } = usePhoneStore();
 
     const [importOpen, setImportOpen] = useState(false);
     const [purchaseOpen, setPurchaseOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<PhoneNumber | null>(null);
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+    const [registerTarget, setRegisterTarget] = useState<PhoneNumber | null>(
+        null,
+    );
+    const [elevenLabsConnections, setElevenLabsConnections] = useState<
+        ElevenLabsConnection[]
+    >([]);
+    const [elevenLabsConnectionsLoading, setElevenLabsConnectionsLoading] =
+        useState(false);
 
     useEffect(() => {
         fetchConnectionDetail(connectionId);
         return () => resetDetail();
     }, [connectionId, fetchConnectionDetail, resetDetail]);
 
+    useEffect(() => {
+        if (!registerTarget) return;
+        setElevenLabsConnectionsLoading(true);
+        aiProviderApi
+            .listConnections()
+            .then(setElevenLabsConnections)
+            .finally(() => setElevenLabsConnectionsLoading(false));
+    }, [registerTarget]);
+
     return (
         <div className="space-y-6">
             <div className="space-y-2">
-                <Link href="/telephone-providers" className="link-muted">
-                    ← Back to Twilio accounts
+                <Link
+                    href="/telephone-providers"
+                    className="link-muted mb-2 block"
+                >
+                    ← Back to Telephone Providers
                 </Link>
-                <p className="text-sm text-zinc-500">Telephone Providers</p>
                 <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
                     {currentConnection?.label ||
                         currentConnection?.account_sid_masked ||
@@ -120,6 +141,7 @@ export default function TelephoneProviderNumbersPage() {
                 onToggleSelect={togglePhoneNumberSelect}
                 onToggleSelectAll={toggleAllPhoneNumbers}
                 onDelete={setDeleteTarget}
+                onRegisterElevenLabs={setRegisterTarget}
             />
 
             <ImportNumberModal
@@ -147,6 +169,22 @@ export default function TelephoneProviderNumbersPage() {
                         ...data,
                     })
                 }
+            />
+
+            <RegisterElevenLabsModal
+                open={!!registerTarget}
+                loading={actionLoading}
+                connections={elevenLabsConnections}
+                connectionsLoading={elevenLabsConnectionsLoading}
+                onClose={() => setRegisterTarget(null)}
+                onSubmit={async (elevenlabsConnectionId) => {
+                    if (!registerTarget) return;
+                    await registerWithElevenLabs(
+                        registerTarget.id,
+                        elevenlabsConnectionId,
+                    );
+                    setRegisterTarget(null);
+                }}
             />
 
             <ConfirmDialog

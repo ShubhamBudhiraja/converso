@@ -13,6 +13,7 @@ from app.schemas.phone import (
     NumberType,
     PhoneNumberResponse,
     PurchasePhoneNumberRequest,
+    RegisterElevenLabsRequest,
     SavePhoneNumberRequest,
     TwilioAccountNumberResponse,
     TwilioAvailableNumberResponse,
@@ -202,3 +203,21 @@ def delete_saved_phone_number(
 ):
     phone_service.delete_saved_phone_number(db, current_user, phone_number_id)
     return MessageResponse(message="Phone number removed")
+
+
+@router.post(
+    "/numbers/{phone_number_id}/register-elevenlabs",
+    response_model=PhoneNumberResponse,
+)
+def register_phone_number_with_elevenlabs(
+    phone_number_id: str,
+    payload: RegisterElevenLabsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return phone_service.register_phone_number_with_elevenlabs(
+        db,
+        current_user,
+        phone_number_id,
+        payload,
+    )

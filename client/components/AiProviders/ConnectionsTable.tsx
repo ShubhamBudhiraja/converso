@@ -16,16 +16,16 @@ import {
   TableRow,
 } from "@/components/ui/Table";
 import { formatDate } from "@/lib/format";
-import { TwilioConnection } from "@/lib/api";
+import { ElevenLabsConnection } from "@/lib/api";
 
 type ConnectionsTableProps = {
-  connections: TwilioConnection[];
+  connections: ElevenLabsConnection[];
   loading: boolean;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
-  onEdit: (connection: TwilioConnection) => void;
-  onDelete: (connection: TwilioConnection) => void;
+  onEdit: (connection: ElevenLabsConnection) => void;
+  onDelete: (connection: ElevenLabsConnection) => void;
 };
 
 export function ConnectionsTable({
@@ -53,8 +53,8 @@ export function ConnectionsTable({
             />
           </TableHeaderCell>
           <TableHeaderCell>Label</TableHeaderCell>
-          <TableHeaderCell>Account SID</TableHeaderCell>
-          <TableHeaderCell>Phone numbers</TableHeaderCell>
+          <TableHeaderCell>API key</TableHeaderCell>
+          <TableHeaderCell>Agents</TableHeaderCell>
           <TableHeaderCell>Status</TableHeaderCell>
           <TableHeaderCell>Last tested</TableHeaderCell>
           <TableHeaderCell align="right">Actions</TableHeaderCell>
@@ -66,13 +66,13 @@ export function ConnectionsTable({
         ) : connections.length === 0 ? (
           <TableEmptyState
             colSpan={7}
-            emptyMessage="No Twilio accounts connected yet."
+            emptyMessage="No ElevenLabs accounts connected yet."
           />
         ) : (
           connections.map((connection) => (
             <TableRow
               key={connection.id}
-              onClick={() => router.push(`/telephone-providers/${connection.id}`)}
+              onClick={() => router.push(`/ai-providers/${connection.id}`)}
             >
               <TableCell onClick={(e) => e.stopPropagation()}>
                 <input
@@ -80,17 +80,17 @@ export function ConnectionsTable({
                   className="checkbox"
                   checked={selectedIds.includes(connection.id)}
                   onChange={() => onToggleSelect(connection.id)}
-                  aria-label={`Select ${connection.label ?? connection.account_sid_masked}`}
+                  aria-label={`Select ${connection.label ?? connection.api_key_masked}`}
                 />
               </TableCell>
               <TableCell className="font-medium text-zinc-900 dark:text-zinc-50">
                 {connection.label || "—"}
               </TableCell>
               <TableCell className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                {connection.account_sid_masked}
+                {connection.api_key_masked}
               </TableCell>
               <TableCell className="text-zinc-700 dark:text-zinc-300">
-                {connection.phone_number_count}
+                {connection.agent_count}
               </TableCell>
               <TableCell>
                 <StatusBadge valid={connection.is_valid} />

@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 
-import { ApiError, UserResponse, authApi } from "@/lib/api";
+import { ApiError, SessionExpiredError, UserResponse, authApi } from "@/lib/api";
+import { refreshAccessToken } from "@/lib/auth-session";
 
 type UserStore = {
   user: UserResponse | null;
@@ -25,16 +26,26 @@ export const useUserStore = create<UserStore>((set, get) => ({
       set({ user: currentUser, loading: false, initialized: true });
       return currentUser;
     } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        set({ user: null, loading: false, initialized: true });
+        return null;
+      }
       if (err instanceof ApiError && err.status === 401) {
-        try {
-          await authApi.refresh();
-          const currentUser = await authApi.me();
-          set({ user: currentUser, loading: false, initialized: true });
-          return currentUser;
-        } catch {
-          set({ user: null, loading: false, initialized: true });
-          return null;
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          try {
+            const currentUser = await authApi.me();
+            set({ user: currentUser, loading: false, initialized: true });
+            return currentUser;
+          } catch (retryErr) {
+            if (retryErr instanceof SessionExpiredError) {
+              set({ user: null, loading: false, initialized: true });
+              return null;
+            }
+          }
         }
+        set({ user: null, loading: false, initialized: true });
+        return null;
       }
       set({ user: null, loading: false, initialized: true });
       return null;

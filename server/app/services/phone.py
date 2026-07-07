@@ -14,6 +14,7 @@ from app.schemas.phone import (
     BulkDeleteResponse,
     PhoneNumberResponse,
     PurchasePhoneNumberRequest,
+    RegisterElevenLabsRequest,
     SavePhoneNumberRequest,
     TwilioAccountNumberResponse,
     TwilioAvailableNumberResponse,
@@ -22,6 +23,12 @@ from app.schemas.phone import (
     TwilioTestResponse,
     UpdateTwilioConnectionRequest,
 )
+from app.services.ai import (
+    _get_decrypted_api_key as _get_elevenlabs_api_key,
+    _handle_elevenlabs_error,
+    get_elevenlabs_connection_for_user,
+)
+from app.services.elevenlabs_client import ElevenLabsClientError, import_phone_number
 from app.services.twilio_client import (
     TwilioClientError,
     find_twilio_phone_number,
@@ -103,6 +110,14 @@ def _handle_encryption_error(exc: Exception) -> None:
             detail=str(exc),
         ) from exc
     raise exc
+
+
+def _phone_number_response(phone_number: PhoneNumber) -> PhoneNumberResponse:
+    return PhoneNumberResponse.model_validate(phone_number)
+
+
+def _phone_number_query(db: Session, user_id: str):
+    return db.query(PhoneNumber).filter(PhoneNumber.user_id == user_id)
 
 
 def _phone_number_counts(db: Session, user_id: str) -> dict[str, int]:
@@ -368,12 +383,12 @@ def list_available_phone_numbers(
 
 
 def list_saved_phone_numbers(db: Session, user: User) -> list[PhoneNumberResponse]:
-    return (
-        db.query(PhoneNumber)
-        .filter(PhoneNumber.user_id == user.id)
+    phone_numbers = (
+        _phone_number_query(db, user.id)
         .order_by(PhoneNumber.created_at.desc())
         .all()
     )
+    return [_phone_number_response(phone_number) for phone_number in phone_numbers]
 
 
 def save_phone_number(
@@ -425,7 +440,7 @@ def save_phone_number(
     db.add(phone_number)
     db.commit()
     db.refresh(phone_number)
-    return phone_number
+    return _phone_number_response(phone_number)
 
 
 def purchase_phone_number(
@@ -472,13 +487,13 @@ def purchase_phone_number(
     db.add(phone_number)
     db.commit()
     db.refresh(phone_number)
-    return phone_number
+    return _phone_number_response(phone_number)
 
 
 def get_saved_phone_number(db: Session, user: User, phone_number_id: str) -> PhoneNumberResponse:
     phone_number = (
-        db.query(PhoneNumber)
-        .filter(PhoneNumber.id == phone_number_id, PhoneNumber.user_id == user.id)
+        _phone_number_query(db, user.id)
+        .filter(PhoneNumber.id == phone_number_id)
         .first()
     )
     if not phone_number:
@@ -486,7 +501,7 @@ def get_saved_phone_number(db: Session, user: User, phone_number_id: str) -> Pho
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Phone number not found",
         )
-    return phone_number
+    return _phone_number_response(phone_number)
 
 
 def delete_saved_phone_number(db: Session, user: User, phone_number_id: str) -> None:
@@ -529,3 +544,59 @@ def bulk_delete_phone_numbers(
         deleted_count=len(phone_numbers),
         not_found_ids=not_found_ids,
     )
+
+
+def register_phone_number_with_elevenlabs(
+    db: Session,
+    user: User,
+    phone_number_id: str,
+    payload: RegisterElevenLabsRequest,
+) -> PhoneNumberResponse:
+    phone_number = (
+        db.query(PhoneNumber)
+        .filter(PhoneNumber.id == phone_number_id, PhoneNumber.user_id == user.id)
+        .first()
+    )
+    if not phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Phone number not found",
+        )
+
+    if phone_number.elevenlabs_phone_number_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone number is already registered with ElevenLabs",
+        )
+
+    twilio_connection = _get_connection_by_id_or_404(
+        db,
+        user.id,
+        phone_number.twilio_connection_id,
+    )
+    elevenlabs_connection = get_elevenlabs_connection_for_user(
+        db,
+        user.id,
+        payload.elevenlabs_connection_id,
+    )
+
+    try:
+        twilio_auth_token = _get_decrypted_auth_token(twilio_connection)
+        elevenlabs_api_key = _get_elevenlabs_api_key(elevenlabs_connection)
+        result = import_phone_number(
+            elevenlabs_api_key,
+            phone_number.phone_number,
+            twilio_connection.account_sid,
+            twilio_auth_token,
+            phone_number.label or phone_number.phone_number,
+        )
+    except ElevenLabsClientError as exc:
+        _handle_elevenlabs_error(exc)
+    except EncryptionError as exc:
+        _handle_encryption_error(exc)
+
+    phone_number.elevenlabs_connection_id = elevenlabs_connection.id
+    phone_number.elevenlabs_phone_number_id = result.phone_number_id
+    db.commit()
+    db.refresh(phone_number)
+    return _phone_number_response(phone_number)

@@ -44,7 +44,7 @@ export default function TelephoneProvidersPage() {
         <div className="space-y-6">
             <PageHeader
                 eyebrow="Telephone Providers"
-                title="Twilio accounts"
+                title="Twilio Accounts"
                 description="Connect Twilio accounts and manage phone numbers for each account."
                 action={
                     <Button onClick={() => setAddOpen(true)}>

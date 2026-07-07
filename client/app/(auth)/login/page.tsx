@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { AuthShell } from "@/components/AuthShell";
@@ -29,6 +29,14 @@ export default function LoginPage() {
     } = useForm<LoginForm>({
         defaultValues: { email: "", password: "" },
     });
+
+    useEffect(() => {
+        const sessionMessage = sessionStorage.getItem("auth_error");
+        if (sessionMessage) {
+            setError(sessionMessage);
+            sessionStorage.removeItem("auth_error");
+        }
+    }, []);
 
     async function onSubmit(data: LoginForm) {
         setError(null);

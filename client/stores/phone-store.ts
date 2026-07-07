@@ -2,10 +2,18 @@
 
 import { create } from "zustand";
 
-import { ApiError, NumberType, PhoneNumber, TwilioAvailableNumber, TwilioConnection, phoneApi } from "@/lib/api";
+import {
+  ApiError,
+  NumberType,
+  PhoneNumber,
+  TwilioAvailableNumber,
+  TwilioConnection,
+  getApiErrorMessage,
+  phoneApi,
+} from "@/lib/api";
 
 function getErrorMessage(err: unknown, fallback: string) {
-  return err instanceof ApiError ? err.message : fallback;
+  return getApiErrorMessage(err, fallback);
 }
 
 type PhoneStore = {
@@ -50,6 +58,10 @@ type PhoneStore = {
     connectionId: string,
     params: { country: string; area_code?: string; number_type: NumberType },
   ) => Promise<TwilioAvailableNumber[]>;
+  registerWithElevenLabs: (
+    phoneNumberId: string,
+    elevenlabsConnectionId: string,
+  ) => Promise<void>;
 
   toggleConnectionSelect: (id: string) => void;
   toggleAllConnections: () => void;
@@ -260,6 +272,21 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
     } catch (err) {
       set({ availableNumbers: [], searchLoading: false });
       throw err;
+    }
+  },
+
+  async registerWithElevenLabs(phoneNumberId, elevenlabsConnectionId) {
+    const connectionId = get().currentConnection?.id;
+    set({ actionLoading: true });
+    try {
+      await phoneApi.registerWithElevenLabs(phoneNumberId, {
+        elevenlabs_connection_id: elevenlabsConnectionId,
+      });
+      if (connectionId) {
+        await get().fetchConnectionDetail(connectionId);
+      }
+    } finally {
+      set({ actionLoading: false });
     }
   },
 
