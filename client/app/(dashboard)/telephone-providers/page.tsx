@@ -8,7 +8,7 @@ import { ConnectionsTable } from "@/components/TelephoneProviders/ConnectionsTab
 import { EditConnectionModal } from "@/components/TelephoneProviders/EditConnectionModal";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { BulkActionsBar, PageHeader } from "@/components/ui/PageHeader";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { TwilioConnection } from "@/lib/api";
 import { usePhoneStore } from "@/stores/phone-store";
 
@@ -17,6 +17,9 @@ export default function TelephoneProvidersPage() {
         connections,
         connectionsLoading,
         connectionsError,
+        connectionsPage,
+        connectionsTotal,
+        connectionsPageSize,
         selectedConnectionIds,
         actionLoading,
         fetchConnections,
@@ -27,6 +30,7 @@ export default function TelephoneProvidersPage() {
         toggleConnectionSelect,
         toggleAllConnections,
         clearConnectionSelection,
+        setConnectionsPage,
     } = usePhoneStore();
 
     const [addOpen, setAddOpen] = useState(false);
@@ -55,11 +59,6 @@ export default function TelephoneProvidersPage() {
 
             <Alert message={connectionsError} />
 
-            <BulkActionsBar
-                count={selectedConnectionIds.length}
-                onDelete={() => setBulkDeleteOpen(true)}
-            />
-
             <ConnectionsTable
                 connections={connections}
                 loading={connectionsLoading}
@@ -68,6 +67,11 @@ export default function TelephoneProvidersPage() {
                 onToggleSelectAll={toggleAllConnections}
                 onEdit={setEditTarget}
                 onDelete={setDeleteTarget}
+                page={connectionsPage}
+                pageSize={connectionsPageSize}
+                total={connectionsTotal}
+                onPageChange={setConnectionsPage}
+                onDeleteSelected={() => setBulkDeleteOpen(true)}
             />
 
             <AddConnectionModal

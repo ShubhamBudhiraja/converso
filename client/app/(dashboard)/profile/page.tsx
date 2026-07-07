@@ -10,7 +10,7 @@ export default function ProfilePage() {
             <div>
                 <p className="text-sm text-zinc-500">Profile</p>
                 <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-                    Profile settings
+                    My Account
                 </h1>
             </div>
             <div className="max-w-md rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">

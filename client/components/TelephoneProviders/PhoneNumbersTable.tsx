@@ -3,6 +3,8 @@
 import { TrashIcon } from "@/components/Icons";
 import { Button } from "@/components/ui/Button";
 import { TableSkeletonRows } from "@/components/ui/Skeleton";
+import { TablePaginationFooter } from "@/components/ui/TablePaginationFooter";
+import { TableToolbar } from "@/components/ui/TableToolbar";
 import {
   Table,
   TableBody,
@@ -23,6 +25,11 @@ type PhoneNumbersTableProps = {
   onToggleSelectAll: () => void;
   onDelete: (number: PhoneNumber) => void;
   onRegisterElevenLabs: (number: PhoneNumber) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onDeleteSelected: () => void;
 };
 
 export function PhoneNumbersTable({
@@ -33,18 +40,45 @@ export function PhoneNumbersTable({
   onToggleSelectAll,
   onDelete,
   onRegisterElevenLabs,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  onDeleteSelected,
 }: PhoneNumbersTableProps) {
+  const pageIds = phoneNumbers.map((number) => number.id);
+  const allPageSelected =
+    pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+
   return (
-    <Table>
+    <Table
+      toolbar={
+        <TableToolbar
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          selectedCount={selectedIds.length}
+          onDeleteSelected={onDeleteSelected}
+        />
+      }
+      footer={
+        <TablePaginationFooter
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={onPageChange}
+        />
+      }
+    >
       <TableHead>
         <TableRow>
           <TableHeaderCell>
             <input
               type="checkbox"
               className="checkbox"
-              checked={phoneNumbers.length > 0 && selectedIds.length === phoneNumbers.length}
+              checked={allPageSelected}
               onChange={onToggleSelectAll}
-              aria-label="Select all phone numbers"
+              aria-label="Select all phone numbers on this page"
             />
           </TableHeaderCell>
           <TableHeaderCell>Phone number</TableHeaderCell>

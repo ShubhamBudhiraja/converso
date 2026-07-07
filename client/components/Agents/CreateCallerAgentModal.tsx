@@ -85,10 +85,13 @@ export function CreateCallerAgentModal({
     setPhoneNumbers([]);
     setElevenLabsAgents([]);
     setProvidersLoading(true);
-    Promise.all([phoneApi.listConnections(), aiProviderApi.listConnections()])
+    Promise.all([
+      phoneApi.listConnections({ page: 1, page_size: 100 }),
+      aiProviderApi.listConnections({ page: 1, page_size: 100 }),
+    ])
       .then(([twilio, elevenlabs]) => {
-        setTwilioConnections(twilio);
-        setElevenLabsConnections(elevenlabs);
+        setTwilioConnections(twilio.items);
+        setElevenLabsConnections(elevenlabs.items);
       })
       .finally(() => setProvidersLoading(false));
   }, [open, reset]);
@@ -100,10 +103,12 @@ export function CreateCallerAgentModal({
     }
     setPhonesLoading(true);
     phoneApi
-      .listPhoneNumbers()
-      .then((numbers) =>
-        setPhoneNumbers(numbers.filter((item) => item.twilio_connection_id === selectedTwilioId)),
-      )
+      .listPhoneNumbers({
+        twilio_connection_id: selectedTwilioId,
+        page: 1,
+        page_size: 100,
+      })
+      .then((data) => setPhoneNumbers(data.items))
       .finally(() => setPhonesLoading(false));
   }, [selectedTwilioId]);
 
@@ -114,8 +119,8 @@ export function CreateCallerAgentModal({
     }
     setAgentsLoading(true);
     aiProviderApi
-      .listAgents(selectedElevenLabsId)
-      .then(setElevenLabsAgents)
+      .listAgents(selectedElevenLabsId, { page: 1, page_size: 100 })
+      .then((data) => setElevenLabsAgents(data.items))
       .finally(() => setAgentsLoading(false));
   }, [selectedElevenLabsId]);
 

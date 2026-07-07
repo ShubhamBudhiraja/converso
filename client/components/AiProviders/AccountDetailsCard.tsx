@@ -26,10 +26,13 @@ export function AccountDetailsCard({
             {connection.label || "—"}
           </dd>
         </div>
-        <div>
+        <div className="min-w-0">
           <dt className="text-xs text-zinc-500">API key</dt>
-          <dd className="mt-1 font-mono text-sm text-zinc-900 dark:text-zinc-50">
-            {connection.api_key_masked}
+          <dd
+            className="mt-1 min-w-0 truncate font-mono text-sm text-zinc-900 dark:text-zinc-50 [direction:rtl] text-left"
+            title={connection.api_key_masked}
+          >
+            <span dir="ltr">{connection.api_key_masked}</span>
           </dd>
         </div>
         <div>

@@ -11,6 +11,7 @@ from app.models.phone_number import PhoneNumber
 from app.models.twilio_connection import TwilioConnection
 from app.models.user import User
 from app.schemas.caller_agent import CallerAgentResponse, CreateCallerAgentRequest
+from app.schemas.pagination import PaginatedResponse
 from app.services.ai import (
     _get_decrypted_api_key,
     _handle_elevenlabs_error,
@@ -65,8 +66,13 @@ def _get_caller_agent_by_id_or_404(db: Session, user_id: str, agent_id: str) -> 
     return agent
 
 
-def list_caller_agents(db: Session, user: User) -> list[CallerAgentResponse]:
-    agents = (
+def list_caller_agents(
+    db: Session,
+    user: User,
+    page: int = 1,
+    page_size: int = 10,
+) -> PaginatedResponse[CallerAgentResponse]:
+    query = (
         db.query(CallerAgent)
         .options(
             joinedload(CallerAgent.phone_number),
@@ -75,8 +81,9 @@ def list_caller_agents(db: Session, user: User) -> list[CallerAgentResponse]:
         )
         .filter(CallerAgent.user_id == user.id)
         .order_by(CallerAgent.created_at.desc())
-        .all()
     )
+    total = query.count()
+    agents = query.offset((page - 1) * page_size).limit(page_size).all()
 
     responses = []
     for agent in agents:
@@ -93,7 +100,12 @@ def list_caller_agents(db: Session, user: User) -> list[CallerAgentResponse]:
         except (ElevenLabsClientError, EncryptionError):
             pass
         responses.append(response)
-    return responses
+    return PaginatedResponse(
+        items=responses,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def create_caller_agent(

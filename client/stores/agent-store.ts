@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-import { ApiError, CallerAgent, callerAgentApi, getApiErrorMessage } from "@/lib/api";
+import { ApiError, CallerAgent, DEFAULT_PAGE_SIZE, callerAgentApi, getApiErrorMessage } from "@/lib/api";
 
 function getErrorMessage(err: unknown, fallback: string) {
   return getApiErrorMessage(err, fallback);
@@ -12,9 +12,13 @@ type CallerAgentStore = {
   agents: CallerAgent[];
   agentsLoading: boolean;
   agentsError: string | null;
+  agentsPage: number;
+  agentsTotal: number;
+  agentsPageSize: number;
   actionLoading: boolean;
 
-  fetchAgents: () => Promise<void>;
+  fetchAgents: (page?: number) => Promise<void>;
+  setAgentsPage: (page: number) => void;
   createAgent: (data: {
     name: string;
     twilio_connection_id: string;
@@ -29,13 +33,33 @@ export const useCallerAgentStore = create<CallerAgentStore>((set, get) => ({
   agents: [],
   agentsLoading: false,
   agentsError: null,
+  agentsPage: 1,
+  agentsTotal: 0,
+  agentsPageSize: DEFAULT_PAGE_SIZE,
   actionLoading: false,
 
-  async fetchAgents() {
+  async fetchAgents(page) {
+    const targetPage = page ?? get().agentsPage;
     set({ agentsLoading: true, agentsError: null });
     try {
-      const agents = await callerAgentApi.listAgents();
-      set({ agents, agentsLoading: false });
+      const data = await callerAgentApi.listAgents({
+        page: targetPage,
+        page_size: get().agentsPageSize,
+      });
+      const nextPage =
+        data.total > 0 && data.items.length === 0 && targetPage > 1
+          ? Math.max(1, Math.ceil(data.total / data.page_size))
+          : targetPage;
+      if (nextPage !== targetPage) {
+        await get().fetchAgents(nextPage);
+        return;
+      }
+      set({
+        agents: data.items,
+        agentsTotal: data.total,
+        agentsPage: data.page,
+        agentsLoading: false,
+      });
     } catch (err) {
       const message = getErrorMessage(err, "Failed to load caller agents");
       set({
@@ -43,6 +67,11 @@ export const useCallerAgentStore = create<CallerAgentStore>((set, get) => ({
         agentsLoading: false,
       });
     }
+  },
+
+  setAgentsPage(page) {
+    set({ agentsPage: page });
+    void get().fetchAgents(page);
   },
 
   async createAgent(data) {

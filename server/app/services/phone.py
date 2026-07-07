@@ -10,6 +10,7 @@ from app.core.encryption import EncryptionError, decrypt_value, encrypt_value, m
 from app.models.phone_number import PhoneNumber
 from app.models.twilio_connection import TwilioConnection
 from app.models.user import User
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.phone import (
     BulkDeleteResponse,
     PhoneNumberResponse,
@@ -130,20 +131,32 @@ def _phone_number_counts(db: Session, user_id: str) -> dict[str, int]:
     return {connection_id: count for connection_id, count in rows}
 
 
-def list_twilio_connections(db: Session, user: User) -> list[TwilioConnectionResponse]:
-    connections = (
+def list_twilio_connections(
+    db: Session,
+    user: User,
+    page: int = 1,
+    page_size: int = 10,
+) -> PaginatedResponse[TwilioConnectionResponse]:
+    query = (
         db.query(TwilioConnection)
         .filter(TwilioConnection.user_id == user.id)
         .order_by(TwilioConnection.created_at.desc())
-        .all()
     )
+    total = query.count()
+    connections = query.offset((page - 1) * page_size).limit(page_size).all()
     counts = _phone_number_counts(db, user.id)
 
     try:
-        return [
+        items = [
             _connection_response(connection, phone_number_count=counts.get(connection.id, 0))
             for connection in connections
         ]
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
     except EncryptionError as exc:
         _handle_encryption_error(exc)
 
@@ -382,13 +395,24 @@ def list_available_phone_numbers(
     ]
 
 
-def list_saved_phone_numbers(db: Session, user: User) -> list[PhoneNumberResponse]:
-    phone_numbers = (
-        _phone_number_query(db, user.id)
-        .order_by(PhoneNumber.created_at.desc())
-        .all()
+def list_saved_phone_numbers(
+    db: Session,
+    user: User,
+    page: int = 1,
+    page_size: int = 10,
+    twilio_connection_id: Optional[str] = None,
+) -> PaginatedResponse[PhoneNumberResponse]:
+    query = _phone_number_query(db, user.id).order_by(PhoneNumber.created_at.desc())
+    if twilio_connection_id:
+        query = query.filter(PhoneNumber.twilio_connection_id == twilio_connection_id)
+    total = query.count()
+    phone_numbers = query.offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedResponse(
+        items=[_phone_number_response(phone_number) for phone_number in phone_numbers],
+        total=total,
+        page=page,
+        page_size=page_size,
     )
-    return [_phone_number_response(phone_number) for phone_number in phone_numbers]
 
 
 def save_phone_number(

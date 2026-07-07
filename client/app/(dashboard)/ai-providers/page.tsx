@@ -8,7 +8,7 @@ import { EditConnectionModal } from "@/components/AiProviders/EditConnectionModa
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { BulkActionsBar, PageHeader } from "@/components/ui/PageHeader";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { ElevenLabsConnection } from "@/lib/api";
 import { useAiProviderStore } from "@/stores/ai-provider-store";
 
@@ -17,6 +17,9 @@ export default function AiProvidersPage() {
         connections,
         connectionsLoading,
         connectionsError,
+        connectionsPage,
+        connectionsTotal,
+        connectionsPageSize,
         selectedConnectionIds,
         actionLoading,
         fetchConnections,
@@ -27,6 +30,7 @@ export default function AiProvidersPage() {
         toggleConnectionSelect,
         toggleAllConnections,
         clearConnectionSelection,
+        setConnectionsPage,
     } = useAiProviderStore();
 
     const [addOpen, setAddOpen] = useState(false);
@@ -56,11 +60,6 @@ export default function AiProvidersPage() {
 
             <Alert message={connectionsError} />
 
-            <BulkActionsBar
-                count={selectedConnectionIds.length}
-                onDelete={() => setBulkDeleteOpen(true)}
-            />
-
             <ConnectionsTable
                 connections={connections}
                 loading={connectionsLoading}
@@ -69,6 +68,11 @@ export default function AiProvidersPage() {
                 onToggleSelectAll={toggleAllConnections}
                 onEdit={setEditTarget}
                 onDelete={setDeleteTarget}
+                page={connectionsPage}
+                pageSize={connectionsPageSize}
+                total={connectionsTotal}
+                onPageChange={setConnectionsPage}
+                onDeleteSelected={() => setBulkDeleteOpen(true)}
             />
 
             <AddConnectionModal

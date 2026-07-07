@@ -1,11 +1,21 @@
 import { ReactNode } from "react";
 
-export function Table({ children }: { children: ReactNode }) {
+export function Table({
+  children,
+  toolbar,
+  footer,
+}: {
+  children: ReactNode;
+  toolbar?: ReactNode;
+  footer?: ReactNode;
+}) {
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+      {toolbar}
       <table className="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-800">
         {children}
       </table>
+      {footer}
     </div>
   );
 }
@@ -87,5 +97,31 @@ export function TableEmptyState({
         {emptyMessage}
       </TableCell>
     </TableRow>
+  );
+}
+
+export function TableFooter({
+  children,
+  align = "between",
+}: {
+  children: ReactNode;
+  align?: "between" | "center";
+}) {
+  return (
+    <div
+      className={`flex items-center gap-4 border-t border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950 ${
+        align === "center" ? "justify-center" : "justify-between"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function TableToolbarBar({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+      {children}
+    </div>
   );
 }

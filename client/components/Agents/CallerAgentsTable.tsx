@@ -3,6 +3,8 @@
 import { TrashIcon } from "@/components/Icons";
 import { Button } from "@/components/ui/Button";
 import { TableSkeletonRows } from "@/components/ui/Skeleton";
+import { TablePaginationFooter } from "@/components/ui/TablePaginationFooter";
+import { TableToolbar } from "@/components/ui/TableToolbar";
 import {
   Table,
   TableBody,
@@ -19,11 +21,35 @@ type CallerAgentsTableProps = {
   agents: CallerAgent[];
   loading: boolean;
   onDelete: (agent: CallerAgent) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
 };
 
-export function CallerAgentsTable({ agents, loading, onDelete }: CallerAgentsTableProps) {
+export function CallerAgentsTable({
+  agents,
+  loading,
+  onDelete,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: CallerAgentsTableProps) {
   return (
-    <Table>
+    <Table
+      toolbar={
+        <TableToolbar page={page} pageSize={pageSize} total={total} />
+      }
+      footer={
+        <TablePaginationFooter
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={onPageChange}
+        />
+      }
+    >
       <TableHead>
         <TableRow>
           <TableHeaderCell>Name</TableHeaderCell>

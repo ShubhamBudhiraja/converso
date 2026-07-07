@@ -16,10 +16,14 @@ export default function AgentsPage() {
         agents,
         agentsLoading,
         agentsError,
+        agentsPage,
+        agentsTotal,
+        agentsPageSize,
         actionLoading,
         fetchAgents,
         createAgent,
         deleteAgent,
+        setAgentsPage,
     } = useCallerAgentStore();
 
     const [createOpen, setCreateOpen] = useState(false);
@@ -48,6 +52,10 @@ export default function AgentsPage() {
                 agents={agents}
                 loading={agentsLoading}
                 onDelete={setDeleteTarget}
+                page={agentsPage}
+                pageSize={agentsPageSize}
+                total={agentsTotal}
+                onPageChange={setAgentsPage}
             />
 
             <CreateCallerAgentModal

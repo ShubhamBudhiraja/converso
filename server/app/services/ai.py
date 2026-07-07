@@ -21,6 +21,7 @@ from app.schemas.ai import (
     UpdateElevenLabsAgentRequest,
     UpdateElevenLabsConnectionRequest,
 )
+from app.schemas.pagination import PaginatedResponse, slice_page
 from app.services.elevenlabs_client import (
     ElevenLabsClientError,
     create_agent,
@@ -120,13 +121,19 @@ def _fetch_agent_count(api_key: str) -> int:
         return 0
 
 
-def list_elevenlabs_connections(db: Session, user: User) -> list[ElevenLabsConnectionResponse]:
-    connections = (
+def list_elevenlabs_connections(
+    db: Session,
+    user: User,
+    page: int = 1,
+    page_size: int = 10,
+) -> PaginatedResponse[ElevenLabsConnectionResponse]:
+    query = (
         db.query(ElevenLabsConnection)
         .filter(ElevenLabsConnection.user_id == user.id)
         .order_by(ElevenLabsConnection.created_at.desc())
-        .all()
     )
+    total = query.count()
+    connections = query.offset((page - 1) * page_size).limit(page_size).all()
     try:
         responses = []
         for connection in connections:
@@ -139,7 +146,12 @@ def list_elevenlabs_connections(db: Session, user: User) -> list[ElevenLabsConne
                     agent_count=agent_count,
                 )
             )
-        return responses
+        return PaginatedResponse(
+            items=responses,
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
     except EncryptionError as exc:
         _handle_encryption_error(exc)
 
@@ -311,7 +323,9 @@ def list_elevenlabs_agents(
     db: Session,
     user: User,
     connection_id: str,
-) -> list[ElevenLabsAgentResponse]:
+    page: int = 1,
+    page_size: int = 10,
+) -> PaginatedResponse[ElevenLabsAgentResponse]:
     connection = _get_connection_by_id_or_404(db, user.id, connection_id)
     try:
         api_key = _get_decrypted_api_key(connection)
@@ -321,7 +335,7 @@ def list_elevenlabs_agents(
     except EncryptionError as exc:
         _handle_encryption_error(exc)
 
-    return [
+    all_agents = [
         ElevenLabsAgentResponse(
             agent_id=agent.agent_id,
             name=agent.name,
@@ -329,6 +343,13 @@ def list_elevenlabs_agents(
         )
         for agent in agents
     ]
+    page_items, total = slice_page(all_agents, page, page_size)
+    return PaginatedResponse(
+        items=page_items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 def list_elevenlabs_voices(

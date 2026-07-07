@@ -6,6 +6,8 @@ import { PencilIcon, TrashIcon } from "@/components/Icons";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TableSkeletonRows } from "@/components/ui/Skeleton";
+import { TablePaginationFooter } from "@/components/ui/TablePaginationFooter";
+import { TableToolbar } from "@/components/ui/TableToolbar";
 import {
   Table,
   TableBody,
@@ -26,6 +28,11 @@ type ConnectionsTableProps = {
   onToggleSelectAll: () => void;
   onEdit: (connection: TwilioConnection) => void;
   onDelete: (connection: TwilioConnection) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onDeleteSelected: () => void;
 };
 
 export function ConnectionsTable({
@@ -36,20 +43,46 @@ export function ConnectionsTable({
   onToggleSelectAll,
   onEdit,
   onDelete,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  onDeleteSelected,
 }: ConnectionsTableProps) {
   const router = useRouter();
+  const pageIds = connections.map((connection) => connection.id);
+  const allPageSelected =
+    pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
 
   return (
-    <Table>
+    <Table
+      toolbar={
+        <TableToolbar
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          selectedCount={selectedIds.length}
+          onDeleteSelected={onDeleteSelected}
+        />
+      }
+      footer={
+        <TablePaginationFooter
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={onPageChange}
+        />
+      }
+    >
       <TableHead>
         <TableRow>
           <TableHeaderCell>
             <input
               type="checkbox"
               className="checkbox"
-              checked={connections.length > 0 && selectedIds.length === connections.length}
+              checked={allPageSelected}
               onChange={onToggleSelectAll}
-              aria-label="Select all accounts"
+              aria-label="Select all accounts on this page"
             />
           </TableHeaderCell>
           <TableHeaderCell>Label</TableHeaderCell>

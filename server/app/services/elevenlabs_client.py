@@ -73,6 +73,8 @@ def _handle_response(response: httpx.Response) -> Any:
         raise ElevenLabsClientError(_parse_error(response), response.status_code)
     if response.status_code >= 500:
         raise ElevenLabsClientError("ElevenLabs service is temporarily unavailable", response.status_code)
+    if response.status_code == 204 or not response.content.strip():
+        return None
     return response.json()
 
 

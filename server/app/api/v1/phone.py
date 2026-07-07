@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.database.connection import get_db
 from app.models.user import User
+from app.schemas.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, PaginatedResponse
 from app.schemas.phone import (
     BulkDeleteRequest,
     BulkDeleteResponse,
@@ -28,12 +29,17 @@ from app.services import phone as phone_service
 router = APIRouter()
 
 
-@router.get("/twilio/connections", response_model=list[TwilioConnectionResponse])
+@router.get(
+    "/twilio/connections",
+    response_model=PaginatedResponse[TwilioConnectionResponse],
+)
 def list_twilio_connections(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return phone_service.list_twilio_connections(db, current_user)
+    return phone_service.list_twilio_connections(db, current_user, page, page_size)
 
 
 @router.post(
@@ -151,12 +157,21 @@ def list_available_twilio_numbers(
     )
 
 
-@router.get("/numbers", response_model=list[PhoneNumberResponse])
+@router.get("/numbers", response_model=PaginatedResponse[PhoneNumberResponse])
 def list_saved_phone_numbers(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    twilio_connection_id: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return phone_service.list_saved_phone_numbers(db, current_user)
+    return phone_service.list_saved_phone_numbers(
+        db,
+        current_user,
+        page,
+        page_size,
+        twilio_connection_id=twilio_connection_id,
+    )
 
 
 @router.post("/numbers", response_model=PhoneNumberResponse, status_code=status.HTTP_201_CREATED)

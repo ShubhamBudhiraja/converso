@@ -12,7 +12,6 @@ import { PurchaseNumberModal } from "@/components/TelephoneProviders/PurchaseNum
 import { RegisterElevenLabsModal } from "@/components/TelephoneProviders/RegisterElevenLabsModal";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { BulkActionsBar } from "@/components/ui/PageHeader";
 import { ElevenLabsConnection, PhoneNumber, aiProviderApi } from "@/lib/api";
 import { usePhoneStore } from "@/stores/phone-store";
 
@@ -23,6 +22,9 @@ export default function TelephoneProviderNumbersPage() {
     const {
         currentConnection,
         phoneNumbers,
+        phoneNumbersPage,
+        phoneNumbersTotal,
+        phoneNumbersPageSize,
         detailLoading,
         detailError,
         selectedPhoneNumberIds,
@@ -44,6 +46,7 @@ export default function TelephoneProviderNumbersPage() {
         clearAvailableNumbers,
         resetDetail,
         registerWithElevenLabs,
+        setPhoneNumbersPage,
     } = usePhoneStore();
 
     const [importOpen, setImportOpen] = useState(false);
@@ -68,8 +71,8 @@ export default function TelephoneProviderNumbersPage() {
         if (!registerTarget) return;
         setElevenLabsConnectionsLoading(true);
         aiProviderApi
-            .listConnections()
-            .then(setElevenLabsConnections)
+            .listConnections({ page: 1, page_size: 100 })
+            .then((data) => setElevenLabsConnections(data.items))
             .finally(() => setElevenLabsConnectionsLoading(false));
     }, [registerTarget]);
 
@@ -129,11 +132,6 @@ export default function TelephoneProviderNumbersPage() {
 
             <Alert message={detailError} />
 
-            <BulkActionsBar
-                count={selectedPhoneNumberIds.length}
-                onDelete={() => setBulkDeleteOpen(true)}
-            />
-
             <PhoneNumbersTable
                 phoneNumbers={phoneNumbers}
                 loading={detailLoading}
@@ -142,6 +140,11 @@ export default function TelephoneProviderNumbersPage() {
                 onToggleSelectAll={toggleAllPhoneNumbers}
                 onDelete={setDeleteTarget}
                 onRegisterElevenLabs={setRegisterTarget}
+                page={phoneNumbersPage}
+                pageSize={phoneNumbersPageSize}
+                total={phoneNumbersTotal}
+                onPageChange={setPhoneNumbersPage}
+                onDeleteSelected={() => setBulkDeleteOpen(true)}
             />
 
             <ImportNumberModal

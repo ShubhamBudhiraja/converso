@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -19,17 +19,23 @@ from app.schemas.ai import (
     UpdateElevenLabsAgentRequest,
     UpdateElevenLabsConnectionRequest,
 )
+from app.schemas.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, PaginatedResponse
 from app.services import ai as ai_service
 
 router = APIRouter()
 
 
-@router.get("/elevenlabs/connections", response_model=list[ElevenLabsConnectionResponse])
+@router.get(
+    "/elevenlabs/connections",
+    response_model=PaginatedResponse[ElevenLabsConnectionResponse],
+)
 def list_elevenlabs_connections(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ai_service.list_elevenlabs_connections(db, current_user)
+    return ai_service.list_elevenlabs_connections(db, current_user, page, page_size)
 
 
 @router.post(
@@ -119,14 +125,18 @@ def test_elevenlabs_connection(
 
 @router.get(
     "/elevenlabs/connections/{connection_id}/agents",
-    response_model=list[ElevenLabsAgentResponse],
+    response_model=PaginatedResponse[ElevenLabsAgentResponse],
 )
 def list_elevenlabs_agents(
     connection_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ai_service.list_elevenlabs_agents(db, current_user, connection_id)
+    return ai_service.list_elevenlabs_agents(
+        db, current_user, connection_id, page, page_size
+    )
 
 
 @router.post(

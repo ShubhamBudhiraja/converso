@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 import {
   ApiError,
+  DEFAULT_PAGE_SIZE,
   NumberType,
   PhoneNumber,
   TwilioAvailableNumber,
@@ -20,11 +21,17 @@ type PhoneStore = {
   connections: TwilioConnection[];
   connectionsLoading: boolean;
   connectionsError: string | null;
+  connectionsPage: number;
+  connectionsTotal: number;
+  connectionsPageSize: number;
   selectedConnectionIds: string[];
   actionLoading: boolean;
 
   currentConnection: TwilioConnection | null;
   phoneNumbers: PhoneNumber[];
+  phoneNumbersPage: number;
+  phoneNumbersTotal: number;
+  phoneNumbersPageSize: number;
   detailLoading: boolean;
   detailError: string | null;
   selectedPhoneNumberIds: string[];
@@ -34,13 +41,16 @@ type PhoneStore = {
   availableNumbers: TwilioAvailableNumber[];
   searchLoading: boolean;
 
-  fetchConnections: () => Promise<void>;
+  fetchConnections: (page?: number) => Promise<void>;
+  setConnectionsPage: (page: number) => void;
   createConnection: (data: { account_sid: string; auth_token: string; label?: string }) => Promise<void>;
   updateConnection: (id: string, data: { label?: string }) => Promise<void>;
   deleteConnection: (id: string) => Promise<void>;
   bulkDeleteConnections: (ids: string[]) => Promise<void>;
 
   fetchConnectionDetail: (connectionId: string) => Promise<void>;
+  setPhoneNumbersPage: (page: number) => void;
+  fetchPhoneNumbers: (connectionId: string, page?: number) => Promise<void>;
   testConnection: (connectionId: string) => Promise<void>;
   importPhoneNumber: (data: {
     twilio_connection_id: string;
@@ -77,11 +87,17 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
   connections: [],
   connectionsLoading: false,
   connectionsError: null,
+  connectionsPage: 1,
+  connectionsTotal: 0,
+  connectionsPageSize: DEFAULT_PAGE_SIZE,
   selectedConnectionIds: [],
   actionLoading: false,
 
   currentConnection: null,
   phoneNumbers: [],
+  phoneNumbersPage: 1,
+  phoneNumbersTotal: 0,
+  phoneNumbersPageSize: DEFAULT_PAGE_SIZE,
   detailLoading: false,
   detailError: null,
   selectedPhoneNumberIds: [],
@@ -91,23 +107,39 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
   availableNumbers: [],
   searchLoading: false,
 
-  async fetchConnections() {
+  async fetchConnections(page) {
+    const targetPage = page ?? get().connectionsPage;
     set({ connectionsLoading: true, connectionsError: null });
     try {
-      const data = await phoneApi.listConnections();
-      set((state) => ({
-        connections: data,
+      const data = await phoneApi.listConnections({
+        page: targetPage,
+        page_size: get().connectionsPageSize,
+      });
+      const nextPage =
+        data.total > 0 && data.items.length === 0 && targetPage > 1
+          ? Math.max(1, Math.ceil(data.total / data.page_size))
+          : targetPage;
+      if (nextPage !== targetPage) {
+        await get().fetchConnections(nextPage);
+        return;
+      }
+      set({
+        connections: data.items,
+        connectionsTotal: data.total,
+        connectionsPage: data.page,
         connectionsLoading: false,
-        selectedConnectionIds: state.selectedConnectionIds.filter((id) =>
-          data.some((item) => item.id === id),
-        ),
-      }));
+      });
     } catch (err) {
       set({
         connectionsError: getErrorMessage(err, "Failed to load Twilio accounts"),
         connectionsLoading: false,
       });
     }
+  },
+
+  setConnectionsPage(page) {
+    set({ connectionsPage: page });
+    void get().fetchConnections(page);
   },
 
   async createConnection(data) {
@@ -158,21 +190,20 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
   },
 
   async fetchConnectionDetail(connectionId) {
-    set({ detailLoading: true, detailError: null });
+    set({
+      detailLoading: true,
+      detailError: null,
+      phoneNumbers: [],
+      phoneNumbersPage: 1,
+      phoneNumbersTotal: 0,
+    });
     try {
-      const [current, numbers] = await Promise.all([
-        phoneApi.getConnection(connectionId),
-        phoneApi.listPhoneNumbers(),
-      ]);
-      const filtered = numbers.filter((item) => item.twilio_connection_id === connectionId);
-      set((state) => ({
+      const current = await phoneApi.getConnection(connectionId);
+      set({
         currentConnection: current,
-        phoneNumbers: filtered,
         detailLoading: false,
-        selectedPhoneNumberIds: state.selectedPhoneNumberIds.filter((id) =>
-          filtered.some((item) => item.id === id),
-        ),
-      }));
+      });
+      await get().fetchPhoneNumbers(connectionId, 1);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         set({
@@ -190,6 +221,45 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
         detailLoading: false,
       });
     }
+  },
+
+  async fetchPhoneNumbers(connectionId, page) {
+    const targetPage = page ?? get().phoneNumbersPage;
+    set({ detailLoading: true, detailError: null });
+    try {
+      const data = await phoneApi.listPhoneNumbers({
+        twilio_connection_id: connectionId,
+        page: targetPage,
+        page_size: get().phoneNumbersPageSize,
+      });
+      const nextPage =
+        data.total > 0 && data.items.length === 0 && targetPage > 1
+          ? Math.max(1, Math.ceil(data.total / data.page_size))
+          : targetPage;
+      if (nextPage !== targetPage) {
+        await get().fetchPhoneNumbers(connectionId, nextPage);
+        return;
+      }
+      set({
+        phoneNumbers: data.items,
+        phoneNumbersTotal: data.total,
+        phoneNumbersPage: data.page,
+        detailLoading: false,
+      });
+    } catch (err) {
+      set({
+        detailError: getErrorMessage(err, "Failed to load phone numbers"),
+        phoneNumbers: [],
+        detailLoading: false,
+      });
+    }
+  },
+
+  setPhoneNumbersPage(page) {
+    const connectionId = get().currentConnection?.id;
+    if (!connectionId) return;
+    set({ phoneNumbersPage: page });
+    void get().fetchPhoneNumbers(connectionId, page);
   },
 
   async testConnection(connectionId) {
@@ -300,11 +370,18 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
 
   toggleAllConnections() {
     const { connections, selectedConnectionIds } = get();
-    if (selectedConnectionIds.length === connections.length) {
-      set({ selectedConnectionIds: [] });
+    const pageIds = connections.map((item) => item.id);
+    const allPageSelected =
+      pageIds.length > 0 && pageIds.every((id) => selectedConnectionIds.includes(id));
+    if (allPageSelected) {
+      set({
+        selectedConnectionIds: selectedConnectionIds.filter((id) => !pageIds.includes(id)),
+      });
       return;
     }
-    set({ selectedConnectionIds: connections.map((item) => item.id) });
+    set({
+      selectedConnectionIds: [...new Set([...selectedConnectionIds, ...pageIds])],
+    });
   },
 
   clearConnectionSelection() {
@@ -321,11 +398,18 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
 
   toggleAllPhoneNumbers() {
     const { phoneNumbers, selectedPhoneNumberIds } = get();
-    if (selectedPhoneNumberIds.length === phoneNumbers.length) {
-      set({ selectedPhoneNumberIds: [] });
+    const pageIds = phoneNumbers.map((item) => item.id);
+    const allPageSelected =
+      pageIds.length > 0 && pageIds.every((id) => selectedPhoneNumberIds.includes(id));
+    if (allPageSelected) {
+      set({
+        selectedPhoneNumberIds: selectedPhoneNumberIds.filter((id) => !pageIds.includes(id)),
+      });
       return;
     }
-    set({ selectedPhoneNumberIds: phoneNumbers.map((item) => item.id) });
+    set({
+      selectedPhoneNumberIds: [...new Set([...selectedPhoneNumberIds, ...pageIds])],
+    });
   },
 
   clearPhoneNumberSelection() {
@@ -340,6 +424,8 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
     set({
       currentConnection: null,
       phoneNumbers: [],
+      phoneNumbersPage: 1,
+      phoneNumbersTotal: 0,
       detailLoading: false,
       detailError: null,
       selectedPhoneNumberIds: [],
