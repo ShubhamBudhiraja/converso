@@ -414,6 +414,199 @@ export const callerAgentApi = {
     },
 };
 
+export type ContactListStatus = "processing" | "completed" | "failed";
+export type CampaignStatus =
+    | "scheduled"
+    | "running"
+    | "completed"
+    | "failed"
+    | "cancelled";
+export type CallStatus =
+    | "pending"
+    | "initiated"
+    | "ringing"
+    | "in_progress"
+    | "answered"
+    | "completed"
+    | "failed"
+    | "busy"
+    | "no_answer"
+    | "cancelled";
+
+export type ContactList = {
+    id: string;
+    name: string;
+    first_name_column: string;
+    last_name_column: string;
+    phone_number_column: string;
+    address_column: string | null;
+    second_phone_column: string | null;
+    country_code: string;
+    total_contacts: number;
+    processed_contacts: number;
+    failed_contacts: number;
+    status: ContactListStatus;
+    created_at: string;
+    updated_at: string;
+};
+
+export type Campaign = {
+    id: string;
+    name: string;
+    status: CampaignStatus;
+    caller_agent_id: string;
+    caller_agent_name: string | null;
+    list_ids: string[];
+    list_names: string[];
+    scheduled_at: string;
+    timezone: string;
+    retry_attempts: number;
+    retry_interval: "24h" | "48h" | "72h";
+    started_at: string | null;
+    completed_at: string | null;
+    total_contacts: number;
+    calls_initiated: number;
+    calls_completed: number;
+    calls_failed: number;
+    created_at: string;
+    updated_at: string;
+};
+
+export type CampaignCall = {
+    id: string;
+    campaign_id: string;
+    contact_id: string | null;
+    contact_name: string | null;
+    phone_number: string;
+    direction: string;
+    status: CallStatus;
+    call_sid: string | null;
+    conversation_id: string | null;
+    transcription_summary: string | null;
+    duration_seconds: number | null;
+    error_message: string | null;
+    retry_attempt: number;
+    created_at: string;
+    updated_at: string;
+};
+
+async function apiFormRequest<T>(
+    path: string,
+    formData: FormData,
+    hasRetried = false,
+): Promise<T> {
+    const response = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+    });
+
+    if (response.status === 401 && !hasRetried && shouldRefreshOn401(path)) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+            return apiFormRequest<T>(path, formData, true);
+        }
+        handleSessionExpired(SESSION_EXPIRED_MESSAGE);
+    }
+
+    if (!response.ok) {
+        throw new ApiError(await parseError(response), response.status);
+    }
+
+    return response.json() as Promise<T>;
+}
+
+export const campaignApi = {
+    listContactLists(params?: PaginationParams) {
+        return apiRequest<PaginatedResponse<ContactList>>(
+            `/campaigns/lists${buildPaginationQuery(params)}`,
+        );
+    },
+
+    importContactList(data: {
+        file: File;
+        name: string;
+        first_name_column: string;
+        last_name_column: string;
+        phone_number_column: string;
+        address_column?: string;
+        second_phone_column?: string;
+        country_code?: string;
+    }) {
+        const formData = new FormData();
+        formData.append("file", data.file);
+        formData.append("name", data.name);
+        formData.append("first_name_column", data.first_name_column);
+        formData.append("last_name_column", data.last_name_column);
+        formData.append("phone_number_column", data.phone_number_column);
+        if (data.address_column) {
+            formData.append("address_column", data.address_column);
+        }
+        if (data.second_phone_column) {
+            formData.append("second_phone_column", data.second_phone_column);
+        }
+        formData.append("country_code", data.country_code ?? "+1");
+        return apiFormRequest<ContactList>("/campaigns/lists/import", formData);
+    },
+
+    deleteContactList(id: string) {
+        return apiRequest<MessageResponse>(`/campaigns/lists/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    listCampaigns(params?: PaginationParams) {
+        return apiRequest<PaginatedResponse<Campaign>>(
+            `/campaigns${buildPaginationQuery(params)}`,
+        );
+    },
+
+    getCampaign(id: string) {
+        return apiRequest<Campaign>(`/campaigns/${id}`);
+    },
+
+    createCampaign(data: {
+        name: string;
+        caller_agent_id: string;
+        list_ids: string[];
+        scheduled_at: string;
+        schedule_settings: {
+            timezone: string;
+            retry_attempts: number;
+            retry_interval: "24h" | "48h" | "72h";
+        };
+    }) {
+        return apiRequest<Campaign>("/campaigns", {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+    },
+
+    cancelCampaign(id: string) {
+        return apiRequest<Campaign>(`/campaigns/${id}/cancel`, {
+            method: "POST",
+        });
+    },
+
+    startCampaign(id: string) {
+        return apiRequest<Campaign>(`/campaigns/${id}/start`, {
+            method: "POST",
+        });
+    },
+
+    deleteCampaign(id: string) {
+        return apiRequest<MessageResponse>(`/campaigns/${id}`, {
+            method: "DELETE",
+        });
+    },
+
+    listCampaignCalls(id: string, params?: PaginationParams) {
+        return apiRequest<PaginatedResponse<CampaignCall>>(
+            `/campaigns/${id}/calls${buildPaginationQuery(params)}`,
+        );
+    },
+};
+
 export type NumberType = "local" | "toll_free" | "mobile";
 
 export const phoneApi = {

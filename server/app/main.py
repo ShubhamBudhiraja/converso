@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -7,7 +8,11 @@ from sqlalchemy import text
 from app.api.v1.router import api_router
 from app.database.connection import Base, engine
 from app.models import (
+    call,
     caller_agent,
+    campaign,
+    contact,
+    contact_list,
     elevenlabs_connection,
     password_reset,
     phone_number,
@@ -15,6 +20,9 @@ from app.models import (
     twilio_connection,
     user,
 )  # noqa: F401
+from app.services.campaign_scheduler import check_scheduled_campaigns
+
+scheduler = BackgroundScheduler()
 
 
 def _migrate_twilio_connections() -> None:
@@ -66,7 +74,10 @@ async def lifespan(app: FastAPI):
     _migrate_twilio_connections()
     _migrate_phone_numbers_elevenlabs()
     _migrate_caller_agents()
+    scheduler.add_job(check_scheduled_campaigns, "interval", minutes=1, id="campaign_scheduler")
+    scheduler.start()
     yield
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="Converso API", lifespan=lifespan)

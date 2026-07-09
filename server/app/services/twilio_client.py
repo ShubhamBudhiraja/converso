@@ -183,3 +183,26 @@ def purchase_twilio_phone_number(
         ) from exc
     except TwilioException as exc:
         raise TwilioClientError(str(exc)) from exc
+
+
+def configure_status_webhook(
+    account_sid: str,
+    auth_token: str,
+    phone_sid: str,
+    status_callback_url: str,
+) -> None:
+    try:
+        client = _create_client(account_sid, auth_token)
+        client.incoming_phone_numbers(phone_sid).update(
+            status_callback=status_callback_url,
+            status_callback_method="POST",
+        )
+    except TwilioRestException as exc:
+        if exc.status == 401:
+            raise TwilioClientError("Invalid Twilio credentials", 401) from exc
+        raise TwilioClientError(
+            exc.msg or "Failed to configure Twilio status webhook",
+            exc.status,
+        ) from exc
+    except TwilioException as exc:
+        raise TwilioClientError(str(exc)) from exc

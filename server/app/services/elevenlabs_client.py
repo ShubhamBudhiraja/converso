@@ -480,3 +480,60 @@ def delete_agent(api_key: str, agent_id: str) -> None:
         if response.status_code == 404:
             return
         _handle_response(response)
+
+
+@dataclass
+class OutboundCallResult:
+    call_sid: str
+    conversation_id: Optional[str]
+    success: bool
+    raw_response: dict[str, Any]
+
+
+def initiate_outbound_call(
+    api_key: str,
+    *,
+    agent_id: str,
+    agent_phone_number_id: str,
+    to_number: str,
+) -> OutboundCallResult:
+    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
+        response = client.post(
+            f"{ELEVENLABS_API_BASE}/convai/twilio/outbound-call",
+            headers=_headers(api_key),
+            json={
+                "agent_id": agent_id,
+                "agent_phone_number_id": agent_phone_number_id,
+                "to_number": to_number,
+            },
+        )
+        data = _handle_response(response) or {}
+        call_sid = data.get("callSid") or data.get("call_sid")
+        if not call_sid:
+            raise ElevenLabsClientError("ElevenLabs did not return a call SID")
+        return OutboundCallResult(
+            call_sid=call_sid,
+            conversation_id=data.get("conversationId") or data.get("conversation_id"),
+            success=bool(data.get("success", True)),
+            raw_response=data,
+        )
+
+
+def configure_agent_webhooks(api_key: str, agent_id: str, webhook_url: str) -> None:
+    with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
+        response = client.patch(
+            f"{ELEVENLABS_API_BASE}/convai/agents/{agent_id}",
+            headers=_headers(api_key),
+            json={
+                "platform_settings": {
+                    "webhook_config": {
+                        "webhook_url": webhook_url,
+                        "webhook_events": [
+                            "post_call_transcription",
+                            "conversation_ended",
+                        ],
+                    }
+                }
+            },
+        )
+        _handle_response(response)
