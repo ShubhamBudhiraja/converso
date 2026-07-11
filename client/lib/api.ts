@@ -450,6 +450,28 @@ export type ContactList = {
     updated_at: string;
 };
 
+export type ContactListImportErrorGroup = {
+    label: string;
+    rows: number[];
+};
+
+export type ContactListValidation = {
+    valid_count: number;
+    total_rows: number;
+    error_groups: ContactListImportErrorGroup[];
+    can_import_partial: boolean;
+};
+
+export class ContactListImportValidationError extends ApiError {
+    validation: ContactListValidation;
+
+    constructor(validation: ContactListValidation) {
+        super("CSV validation failed", 409);
+        this.name = "ContactListImportValidationError";
+        this.validation = validation;
+    }
+}
+
 export type Campaign = {
     id: string;
     name: string;
@@ -516,6 +538,81 @@ async function apiFormRequest<T>(
     return response.json() as Promise<T>;
 }
 
+async function apiImportContactListRequest(
+    formData: FormData,
+    hasRetried = false,
+): Promise<ContactList> {
+    const response = await fetch(`${API_BASE}/campaigns/lists/import`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+    });
+
+    if (
+        response.status === 401 &&
+        !hasRetried &&
+        shouldRefreshOn401("/campaigns/lists/import")
+    ) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+            return apiImportContactListRequest(formData, true);
+        }
+        handleSessionExpired(SESSION_EXPIRED_MESSAGE);
+    }
+
+    if (response.status === 409) {
+        try {
+            const validation = (await response.json()) as ContactListValidation;
+            if (Array.isArray(validation.error_groups)) {
+                throw new ContactListImportValidationError(validation);
+            }
+        } catch (err) {
+            if (err instanceof ContactListImportValidationError) {
+                throw err;
+            }
+        }
+    }
+
+    if (!response.ok) {
+        throw new ApiError(await parseError(response), response.status);
+    }
+
+    return response.json() as Promise<ContactList>;
+}
+
+async function apiDownload(
+    path: string,
+    fallbackFilename: string,
+    hasRetried = false,
+): Promise<void> {
+    const response = await fetch(`${API_BASE}${path}`, {
+        credentials: "include",
+    });
+
+    if (response.status === 401 && !hasRetried && shouldRefreshOn401(path)) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+            return apiDownload(path, fallbackFilename, true);
+        }
+        handleSessionExpired(SESSION_EXPIRED_MESSAGE);
+    }
+
+    if (!response.ok) {
+        throw new ApiError(await parseError(response), response.status);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const match = disposition.match(/filename="?([^"]+)"?/i);
+    const filename = match?.[1] ?? fallbackFilename;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
 export const campaignApi = {
     listContactLists(params?: PaginationParams) {
         return apiRequest<PaginatedResponse<ContactList>>(
@@ -532,6 +629,7 @@ export const campaignApi = {
         address_column?: string;
         second_phone_column?: string;
         country_code?: string;
+        accept_partial?: boolean;
     }) {
         const formData = new FormData();
         formData.append("file", data.file);
@@ -546,13 +644,26 @@ export const campaignApi = {
             formData.append("second_phone_column", data.second_phone_column);
         }
         formData.append("country_code", data.country_code ?? "+1");
-        return apiFormRequest<ContactList>("/campaigns/lists/import", formData);
+        formData.append("accept_partial", String(Boolean(data.accept_partial)));
+        return apiImportContactListRequest(formData);
     },
 
     deleteContactList(id: string) {
         return apiRequest<MessageResponse>(`/campaigns/lists/${id}`, {
             method: "DELETE",
         });
+    },
+
+    updateContactList(id: string, data: { name: string }) {
+        return apiRequest<ContactList>(`/campaigns/lists/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+        });
+    },
+
+    downloadContactListCsv(id: string, name: string) {
+        const fallbackFilename = `${name.trim().replace(/[^\w-]+/g, "-") || "contact-list"}.csv`;
+        return apiDownload(`/campaigns/lists/${id}/export`, fallbackFilename);
     },
 
     listCampaigns(params?: PaginationParams) {
@@ -604,6 +715,63 @@ export const campaignApi = {
         return apiRequest<PaginatedResponse<CampaignCall>>(
             `/campaigns/${id}/calls${buildPaginationQuery(params)}`,
         );
+    },
+};
+
+export type LeadStatus = "new_lead" | "voicemail" | "dead";
+
+export type Lead = {
+    id: string;
+    user_id: string;
+    source: "outbound" | "inbound";
+    call_id: string | null;
+    campaign_id: string | null;
+    campaign_name: string | null;
+    contact_id: string | null;
+    contact_name: string | null;
+    phone_number: string | null;
+    status: LeadStatus;
+    confidence: number;
+    summary: string;
+    created_at: string;
+    updated_at: string;
+};
+
+export type LeadStatistics = {
+    total_leads: number;
+    leads_by_status: Record<string, number>;
+    leads_by_source: Record<string, number>;
+    conversion_rate: number;
+    average_confidence: number;
+    leads_over_time: Array<{ date: string; count: number }>;
+};
+
+export const leadsApi = {
+    listLeads(
+        params?: PaginationParams & {
+            status?: LeadStatus;
+            campaign_id?: string;
+        },
+    ) {
+        const search = new URLSearchParams();
+        if (params?.page) search.set("page", String(params.page));
+        if (params?.page_size)
+            search.set("page_size", String(params.page_size));
+        if (params?.status) search.set("status", params.status);
+        if (params?.campaign_id) search.set("campaign_id", params.campaign_id);
+        const query = search.toString();
+        return apiRequest<PaginatedResponse<Lead>>(
+            `/leads${query ? `?${query}` : ""}`,
+        );
+    },
+
+    getLead(id: string) {
+        return apiRequest<Lead>(`/leads/${id}`);
+    },
+
+    getStatistics(campaignId?: string) {
+        const query = campaignId ? `?campaign_id=${campaignId}` : "";
+        return apiRequest<LeadStatistics>(`/leads/statistics${query}`);
     },
 };
 

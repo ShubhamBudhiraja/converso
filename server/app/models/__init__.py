@@ -5,6 +5,7 @@ from app.models import (
     contact,
     contact_list,
     elevenlabs_connection,
+    lead,
     password_reset,
     phone_number,
     session,

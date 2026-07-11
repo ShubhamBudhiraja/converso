@@ -7,10 +7,14 @@ from app.database.connection import Base
 
 class CallerAgent(Base):
     __tablename__ = "caller_agents"
-    __table_args__ = (UniqueConstraint("phone_number_id", name="uq_caller_agent_phone_number"),)
+    __table_args__ = (
+        UniqueConstraint("phone_number_id", name="uq_caller_agent_phone_number"),
+    )
 
     id = Column(String, primary_key=True, index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
     name = Column(String, nullable=False)
     twilio_connection_id = Column(
         String,
@@ -28,7 +32,9 @@ class CallerAgent(Base):
         nullable=False,
     )
     elevenlabs_agent_id = Column(String, nullable=False)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),

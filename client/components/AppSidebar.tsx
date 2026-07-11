@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +6,7 @@ const navItems = [
     { href: "/telephone-providers", label: "Telephone Providers" },
     { href: "/ai-providers", label: "AI Providers" },
     { href: "/agents", label: "Agents" },
+    { href: "/contact-lists", label: "Contact lists" },
     { href: "/campaigns", label: "Campaigns" },
     { href: "/leads", label: "Leads" },
 ];

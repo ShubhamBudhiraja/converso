@@ -1,6 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -14,6 +15,7 @@ from app.schemas.campaign import (
     ContactResponse,
     CreateCampaignRequest,
     UpdateCampaignRequest,
+    UpdateContactListRequest,
 )
 from app.schemas.pagination import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, PaginatedResponse
 from app.schemas.phone import MessageResponse
@@ -33,7 +35,11 @@ def list_contact_lists(
     return contact_lists_service.list_contact_lists(db, current_user, page, page_size)
 
 
-@router.post("/lists/import", response_model=ContactListResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/lists/import",
+    response_model=ContactListResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def import_contact_list(
     name: str = Form(...),
     first_name_column: str = Form(...),
@@ -42,11 +48,13 @@ def import_contact_list(
     address_column: Optional[str] = Form(default=None),
     second_phone_column: Optional[str] = Form(default=None),
     country_code: str = Form(default="+1"),
+    accept_partial: bool = Form(default=False),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     from app.schemas.campaign import ImportContactListRequest
+    from app.services.contact_lists import ContactListImportValidationError
 
     payload = ImportContactListRequest(
         name=name,
@@ -57,7 +65,19 @@ def import_contact_list(
         second_phone_column=second_phone_column,
         country_code=country_code,
     )
-    return contact_lists_service.import_contact_list(db, current_user, payload, file)
+    try:
+        return contact_lists_service.import_contact_list(
+            db,
+            current_user,
+            payload,
+            file,
+            accept_partial=accept_partial,
+        )
+    except ContactListImportValidationError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content=exc.validation.model_dump(mode="json"),
+        )
 
 
 @router.get("/lists/{list_id}", response_model=ContactListResponse)
@@ -69,7 +89,9 @@ def get_contact_list(
     return contact_lists_service.get_contact_list(db, current_user, list_id)
 
 
-@router.get("/lists/{list_id}/contacts", response_model=PaginatedResponse[ContactResponse])
+@router.get(
+    "/lists/{list_id}/contacts", response_model=PaginatedResponse[ContactResponse]
+)
 def list_contacts(
     list_id: str,
     page: int = Query(default=1, ge=1),
@@ -77,7 +99,42 @@ def list_contacts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return contact_lists_service.list_contacts(db, current_user, list_id, page, page_size)
+    return contact_lists_service.list_contacts(
+        db, current_user, list_id, page, page_size
+    )
+
+
+@router.patch("/lists/{list_id}", response_model=ContactListResponse)
+def update_contact_list(
+    list_id: str,
+    payload: UpdateContactListRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return contact_lists_service.update_contact_list(
+        db,
+        current_user,
+        list_id,
+        payload.name,
+    )
+
+
+@router.get("/lists/{list_id}/export")
+def export_contact_list(
+    list_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    filename, csv_content = contact_lists_service.export_contact_list_csv(
+        db,
+        current_user,
+        list_id,
+    )
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/lists/{list_id}", response_model=MessageResponse)
@@ -164,4 +221,6 @@ def list_campaign_calls(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return campaigns_service.list_campaign_calls(db, current_user, campaign_id, page, page_size)
+    return campaigns_service.list_campaign_calls(
+        db, current_user, campaign_id, page, page_size
+    )

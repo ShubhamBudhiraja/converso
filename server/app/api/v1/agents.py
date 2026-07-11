@@ -22,7 +22,9 @@ def list_caller_agents(
     return caller_agents_service.list_caller_agents(db, current_user, page, page_size)
 
 
-@router.post("", response_model=CallerAgentResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=CallerAgentResponse, status_code=status.HTTP_201_CREATED
+)
 def create_caller_agent(
     payload: CreateCallerAgentRequest,
     current_user: User = Depends(get_current_user),

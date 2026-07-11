@@ -22,6 +22,8 @@ class Contact(Base):
     second_phone_number = Column(String, nullable=True)
     country_code = Column(String, nullable=True)
     row_number = Column(Integer, nullable=True)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
 
     contact_list = relationship("ContactList", back_populates="contacts")

@@ -50,7 +50,9 @@ def _caller_agent_response(agent: CallerAgent) -> CallerAgentResponse:
     )
 
 
-def _get_caller_agent_by_id_or_404(db: Session, user_id: str, agent_id: str) -> CallerAgent:
+def _get_caller_agent_by_id_or_404(
+    db: Session, user_id: str, agent_id: str
+) -> CallerAgent:
     agent = (
         db.query(CallerAgent)
         .options(
@@ -62,7 +64,9 @@ def _get_caller_agent_by_id_or_404(db: Session, user_id: str, agent_id: str) -> 
         .first()
     )
     if not agent:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caller agent not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caller agent not found"
+        )
     return agent
 
 
@@ -92,11 +96,17 @@ def list_caller_agents(
             api_key = _get_decrypted_api_key(agent.elevenlabs_connection)
             el_agents = list_agents(api_key)
             match = next(
-                (item for item in el_agents if item.agent_id == agent.elevenlabs_agent_id),
+                (
+                    item
+                    for item in el_agents
+                    if item.agent_id == agent.elevenlabs_agent_id
+                ),
                 None,
             )
             if match:
-                response = response.model_copy(update={"elevenlabs_agent_name": match.name})
+                response = response.model_copy(
+                    update={"elevenlabs_agent_name": match.name}
+                )
         except (ElevenLabsClientError, EncryptionError):
             pass
         responses.append(response)
@@ -113,7 +123,9 @@ def create_caller_agent(
     user: User,
     payload: CreateCallerAgentRequest,
 ) -> CallerAgentResponse:
-    twilio_connection = _get_connection_by_id_or_404(db, user.id, payload.twilio_connection_id)
+    twilio_connection = _get_connection_by_id_or_404(
+        db, user.id, payload.twilio_connection_id
+    )
     elevenlabs_connection = get_elevenlabs_connection_for_user(
         db,
         user.id,

@@ -95,7 +95,9 @@ def update_elevenlabs_connection(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ai_service.update_elevenlabs_connection(db, current_user, connection_id, payload)
+    return ai_service.update_elevenlabs_connection(
+        db, current_user, connection_id, payload
+    )
 
 
 @router.delete(

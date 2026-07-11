@@ -1,5 +1,3 @@
-"use client";
-
 import { TrashIcon } from "@/components/Icons";
 import { Button } from "@/components/ui/Button";
 import { TableSkeletonRows } from "@/components/ui/Skeleton";

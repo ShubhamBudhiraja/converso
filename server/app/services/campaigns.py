@@ -74,7 +74,9 @@ def _get_campaign_or_404(db: Session, user_id: str, campaign_id: str) -> Campaig
         .first()
     )
     if not campaign:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found"
+        )
     return campaign
 
 
@@ -85,8 +87,15 @@ def _validate_lists(db: Session, user_id: str, list_ids: list[str]) -> None:
         .all()
     )
     if len(lists) != len(list_ids):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more contact lists were not found")
-    invalid = [item.id for item in lists if item.status != "completed" or item.total_contacts == 0]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="One or more contact lists were not found",
+        )
+    invalid = [
+        item.id
+        for item in lists
+        if item.status != "completed" or item.total_contacts == 0
+    ]
     if invalid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -94,7 +103,9 @@ def _validate_lists(db: Session, user_id: str, list_ids: list[str]) -> None:
         )
 
 
-def _validate_caller_agent(db: Session, user_id: str, caller_agent_id: str) -> CallerAgent:
+def _validate_caller_agent(
+    db: Session, user_id: str, caller_agent_id: str
+) -> CallerAgent:
     caller_agent = (
         db.query(CallerAgent)
         .options(joinedload(CallerAgent.phone_number))
@@ -102,8 +113,13 @@ def _validate_caller_agent(db: Session, user_id: str, caller_agent_id: str) -> C
         .first()
     )
     if not caller_agent:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Caller agent not found")
-    if not caller_agent.phone_number or not caller_agent.phone_number.elevenlabs_phone_number_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Caller agent not found"
+        )
+    if (
+        not caller_agent.phone_number
+        or not caller_agent.phone_number.elevenlabs_phone_number_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Caller agent phone is not registered with ElevenLabs",
@@ -159,9 +175,14 @@ def list_campaign_calls(
     def to_response(call: Call) -> CallResponse:
         contact_name = None
         if call.contact:
-            contact_name = " ".join(
-                part for part in [call.contact.first_name, call.contact.last_name] if part
-            ) or None
+            contact_name = (
+                " ".join(
+                    part
+                    for part in [call.contact.first_name, call.contact.last_name]
+                    if part
+                )
+                or None
+            )
         return CallResponse(
             id=call.id,
             campaign_id=call.campaign_id,
@@ -188,7 +209,9 @@ def list_campaign_calls(
     )
 
 
-def create_campaign(db: Session, user: User, payload: CreateCampaignRequest) -> CampaignResponse:
+def create_campaign(
+    db: Session, user: User, payload: CreateCampaignRequest
+) -> CampaignResponse:
     _validate_caller_agent(db, user.id, payload.caller_agent_id)
     _validate_lists(db, user.id, payload.list_ids)
 
@@ -300,7 +323,9 @@ def _run_campaign_in_background(campaign_id: str) -> None:
         db.close()
 
 
-def trigger_campaign_start(db: Session, user: User, campaign_id: str) -> CampaignResponse:
+def trigger_campaign_start(
+    db: Session, user: User, campaign_id: str
+) -> CampaignResponse:
     campaign = _get_campaign_or_404(db, user.id, campaign_id)
     if campaign.status not in {"scheduled", "running"}:
         raise HTTPException(

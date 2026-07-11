@@ -9,7 +9,9 @@ class Call(Base):
     __tablename__ = "calls"
 
     id = Column(String, primary_key=True, index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
     campaign_id = Column(
         String,
         ForeignKey("campaigns.id", ondelete="CASCADE"),
@@ -37,7 +39,9 @@ class Call(Base):
     error_message = Column(Text, nullable=True)
     provider_metadata = Column(Text, nullable=True)
     retry_attempt = Column(Integer, default=1, nullable=False)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),

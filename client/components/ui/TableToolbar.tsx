@@ -1,5 +1,3 @@
-"use client";
-
 import { Button } from "@/components/ui/Button";
 import { TableToolbarBar } from "@/components/ui/Table";
 import { formatShowingRange } from "@/lib/table-pagination";

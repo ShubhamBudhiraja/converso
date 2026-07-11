@@ -9,7 +9,9 @@ class ContactList(Base):
     __tablename__ = "contact_lists"
 
     id = Column(String, primary_key=True, index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
     name = Column(String, nullable=False)
     first_name_column = Column(String, nullable=False)
     last_name_column = Column(String, nullable=False)
@@ -21,7 +23,9 @@ class ContactList(Base):
     processed_contacts = Column(Integer, default=0, nullable=False)
     failed_contacts = Column(Integer, default=0, nullable=False)
     status = Column(String, default="processing", nullable=False)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
@@ -30,4 +34,6 @@ class ContactList(Base):
     )
 
     user = relationship("User", backref="contact_lists")
-    contacts = relationship("Contact", back_populates="contact_list", cascade="all, delete-orphan")
+    contacts = relationship(
+        "Contact", back_populates="contact_list", cascade="all, delete-orphan"
+    )

@@ -34,4 +34,9 @@ class Campaign(Base):
 
     user = relationship("User", backref="campaigns")
     caller_agent = relationship("CallerAgent")
-    calls = relationship("Call", back_populates="campaign")
+    calls = relationship(
+        "Call",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

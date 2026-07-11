@@ -5,7 +5,12 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.encryption import EncryptionError, decrypt_value, encrypt_value, mask_secret
+from app.core.encryption import (
+    EncryptionError,
+    decrypt_value,
+    encrypt_value,
+    mask_secret,
+)
 from app.models.elevenlabs_connection import ElevenLabsConnection
 from app.models.phone_number import PhoneNumber
 from app.models.user import User
@@ -379,7 +384,9 @@ def list_elevenlabs_voices(
     ]
 
 
-def _elevenlabs_agent_detail(api_key: str, agent_id: str) -> ElevenLabsAgentDetailResponse:
+def _elevenlabs_agent_detail(
+    api_key: str, agent_id: str
+) -> ElevenLabsAgentDetailResponse:
     el_data = get_agent(api_key, agent_id)
     details = _extract_agent_details(el_data)
     return ElevenLabsAgentDetailResponse(

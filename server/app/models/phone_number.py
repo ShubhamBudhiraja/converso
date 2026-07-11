@@ -7,10 +7,14 @@ from app.database.connection import Base
 
 class PhoneNumber(Base):
     __tablename__ = "phone_numbers"
-    __table_args__ = (UniqueConstraint("user_id", "phone_number", name="uq_user_phone_number"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "phone_number", name="uq_user_phone_number"),
+    )
 
     id = Column(String, primary_key=True, index=True)
-    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
     twilio_connection_id = Column(
         String,
         ForeignKey("twilio_connections.id", ondelete="CASCADE"),
@@ -26,7 +30,9 @@ class PhoneNumber(Base):
         nullable=True,
     )
     status = Column(String, default="active", nullable=False)
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
@@ -36,4 +42,6 @@ class PhoneNumber(Base):
 
     user = relationship("User", backref="phone_numbers")
     twilio_connection = relationship("TwilioConnection", back_populates="phone_numbers")
-    elevenlabs_connection = relationship("ElevenLabsConnection", back_populates="phone_numbers")
+    elevenlabs_connection = relationship(
+        "ElevenLabsConnection", back_populates="phone_numbers"
+    )

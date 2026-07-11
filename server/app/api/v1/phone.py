@@ -80,7 +80,9 @@ def bulk_delete_twilio_connections(
     return phone_service.bulk_delete_twilio_connections(db, current_user, payload.ids)
 
 
-@router.get("/twilio/connections/{connection_id}", response_model=TwilioConnectionResponse)
+@router.get(
+    "/twilio/connections/{connection_id}", response_model=TwilioConnectionResponse
+)
 def get_twilio_connection(
     connection_id: str,
     current_user: User = Depends(get_current_user),
@@ -89,14 +91,18 @@ def get_twilio_connection(
     return phone_service.get_twilio_connection(db, current_user, connection_id)
 
 
-@router.put("/twilio/connections/{connection_id}", response_model=TwilioConnectionResponse)
+@router.put(
+    "/twilio/connections/{connection_id}", response_model=TwilioConnectionResponse
+)
 def update_twilio_connection(
     connection_id: str,
     payload: UpdateTwilioConnectionRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return phone_service.update_twilio_connection(db, current_user, connection_id, payload)
+    return phone_service.update_twilio_connection(
+        db, current_user, connection_id, payload
+    )
 
 
 @router.delete("/twilio/connections/{connection_id}", response_model=MessageResponse)
@@ -174,7 +180,9 @@ def list_saved_phone_numbers(
     )
 
 
-@router.post("/numbers", response_model=PhoneNumberResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/numbers", response_model=PhoneNumberResponse, status_code=status.HTTP_201_CREATED
+)
 def save_phone_number(
     payload: SavePhoneNumberRequest,
     current_user: User = Depends(get_current_user),
@@ -183,7 +191,11 @@ def save_phone_number(
     return phone_service.save_phone_number(db, current_user, payload)
 
 
-@router.post("/numbers/purchase", response_model=PhoneNumberResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/numbers/purchase",
+    response_model=PhoneNumberResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def purchase_phone_number(
     payload: PurchasePhoneNumberRequest,
     current_user: User = Depends(get_current_user),

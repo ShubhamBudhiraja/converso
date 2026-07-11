@@ -8,7 +8,11 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.config import CAMPAIGN_BATCH_DELAY_SECONDS, CAMPAIGN_BATCH_SIZE, WEBHOOK_BASE_URL
+from app.core.config import (
+    CAMPAIGN_BATCH_DELAY_SECONDS,
+    CAMPAIGN_BATCH_SIZE,
+    WEBHOOK_BASE_URL,
+)
 from app.models.call import Call
 from app.models.caller_agent import CallerAgent
 from app.models.campaign import Campaign
@@ -16,7 +20,11 @@ from app.models.contact import Contact
 from app.models.contact_list import ContactList
 from app.models.user import User
 from app.schemas.campaign import CampaignExecutionResponse
-from app.services.ai import _get_decrypted_api_key, _handle_elevenlabs_error, _handle_encryption_error
+from app.services.ai import (
+    _get_decrypted_api_key,
+    _handle_elevenlabs_error,
+    _handle_encryption_error,
+)
 from app.services.call_lifecycle import maybe_complete_campaign
 from app.services.elevenlabs_client import (
     ElevenLabsClientError,
@@ -33,7 +41,9 @@ def _chunk(items: list[Contact], size: int) -> list[list[Contact]]:
     return [items[index : index + size] for index in range(0, len(items), size)]
 
 
-def _configure_webhooks_for_caller_agent(db: Session, caller_agent: CallerAgent) -> None:
+def _configure_webhooks_for_caller_agent(
+    db: Session, caller_agent: CallerAgent
+) -> None:
     try:
         api_key = _get_decrypted_api_key(caller_agent.elevenlabs_connection)
     except Exception as exc:
@@ -43,7 +53,10 @@ def _configure_webhooks_for_caller_agent(db: Session, caller_agent: CallerAgent)
     twilio_connection = caller_agent.twilio_connection
     phone = caller_agent.phone_number
     if not twilio_connection or not phone or not phone.twilio_phone_sid:
-        logger.warning("Skipping Twilio webhook setup: phone SID missing for caller agent %s", caller_agent.id)
+        logger.warning(
+            "Skipping Twilio webhook setup: phone SID missing for caller agent %s",
+            caller_agent.id,
+        )
     else:
         try:
             auth_token = _get_decrypted_auth_token(twilio_connection)
@@ -72,19 +85,27 @@ def execute_campaign(db: Session, campaign_id: str) -> CampaignExecutionResponse
         .options(
             joinedload(Campaign.caller_agent).joinedload(CallerAgent.phone_number),
             joinedload(Campaign.caller_agent).joinedload(CallerAgent.twilio_connection),
-            joinedload(Campaign.caller_agent).joinedload(CallerAgent.elevenlabs_connection),
+            joinedload(Campaign.caller_agent).joinedload(
+                CallerAgent.elevenlabs_connection
+            ),
         )
         .filter(Campaign.id == campaign_id)
         .first()
     )
     if not campaign:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found"
+        )
     if campaign.status != "running":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Campaign is not running")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Campaign is not running"
+        )
 
     caller_agent = campaign.caller_agent
     if not caller_agent:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Caller agent not found")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Caller agent not found"
+        )
 
     phone = caller_agent.phone_number
     if not phone or not phone.elevenlabs_phone_number_id:
@@ -100,7 +121,10 @@ def execute_campaign(db: Session, campaign_id: str) -> CampaignExecutionResponse
         .all()
     )
     if not contact_lists:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid contact lists found")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No valid contact lists found",
+        )
 
     contacts = (
         db.query(Contact)
@@ -109,7 +133,10 @@ def execute_campaign(db: Session, campaign_id: str) -> CampaignExecutionResponse
         .all()
     )
     if not contacts:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No contacts found in selected lists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No contacts found in selected lists",
+        )
 
     existing_contact_ids = {
         row[0]
@@ -117,7 +144,9 @@ def execute_campaign(db: Session, campaign_id: str) -> CampaignExecutionResponse
         .filter(Call.campaign_id == campaign_id, Call.contact_id.isnot(None))
         .all()
     }
-    contacts = [contact for contact in contacts if contact.id not in existing_contact_ids]
+    contacts = [
+        contact for contact in contacts if contact.id not in existing_contact_ids
+    ]
     if not contacts:
         maybe_complete_campaign(db, campaign.id)
         return CampaignExecutionResponse(
@@ -179,13 +208,17 @@ def execute_campaign(db: Session, campaign_id: str) -> CampaignExecutionResponse
                 call_record.error_message = str(exc)
                 db.commit()
                 errors.append(f"{contact.phone_number}: {exc}")
-                logger.error("Failed to initiate call for %s: %s", contact.phone_number, exc)
+                logger.error(
+                    "Failed to initiate call for %s: %s", contact.phone_number, exc
+                )
             except Exception as exc:
                 call_record.status = "failed"
                 call_record.error_message = str(exc)
                 db.commit()
                 errors.append(f"{contact.phone_number}: {exc}")
-                logger.exception("Unexpected error initiating call for %s", contact.phone_number)
+                logger.exception(
+                    "Unexpected error initiating call for %s", contact.phone_number
+                )
 
         if batch is not contacts[-CAMPAIGN_BATCH_SIZE:]:
             time.sleep(CAMPAIGN_BATCH_DELAY_SECONDS)
@@ -200,14 +233,18 @@ def execute_campaign(db: Session, campaign_id: str) -> CampaignExecutionResponse
     )
 
 
-def start_campaign_execution(db: Session, user: User, campaign_id: str) -> CampaignExecutionResponse:
+def start_campaign_execution(
+    db: Session, user: User, campaign_id: str
+) -> CampaignExecutionResponse:
     campaign = (
         db.query(Campaign)
         .filter(Campaign.id == campaign_id, Campaign.user_id == user.id)
         .first()
     )
     if not campaign:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Campaign not found"
+        )
     if campaign.status not in {"scheduled", "running"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

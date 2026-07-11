@@ -79,7 +79,9 @@ class ElevenLabsVoiceResponse(BaseModel):
 class CreateElevenLabsAgentRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     system_prompt: str = Field(default="You are a helpful assistant.", max_length=8000)
-    first_message: str = Field(default="Hello! How can I help you today?", max_length=1000)
+    first_message: str = Field(
+        default="Hello! How can I help you today?", max_length=1000
+    )
     voice_id: str = Field(min_length=1, max_length=64)
     llm: str = Field(default="gpt-4o-mini", max_length=64)
 

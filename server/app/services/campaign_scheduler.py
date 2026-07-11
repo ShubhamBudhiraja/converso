@@ -28,11 +28,7 @@ def check_scheduled_campaigns() -> None:
     db = SessionLocal()
     try:
         now = datetime.now(timezone.utc)
-        campaigns = (
-            db.query(Campaign)
-            .filter(Campaign.status == "scheduled")
-            .all()
-        )
+        campaigns = db.query(Campaign).filter(Campaign.status == "scheduled").all()
         for campaign in campaigns:
             try:
                 if _scheduled_at_utc(campaign) <= now:

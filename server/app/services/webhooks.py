@@ -13,11 +13,14 @@ from app.services.call_lifecycle import (
     update_call_from_elevenlabs_post_call,
     update_call_from_twilio_status,
 )
+from app.services.leads import build_transcript_from_webhook_payload
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_elevenlabs_signature(body: bytes, signature_header: Optional[str]) -> bool:
+def _validate_elevenlabs_signature(
+    body: bytes, signature_header: Optional[str]
+) -> bool:
     if not ELEVENLABS_WEBHOOK_SECRET:
         return True
     if not signature_header:
@@ -52,10 +55,14 @@ def handle_twilio_status(db: Session, form_data: dict[str, Any]) -> None:
     call_sid = form_data.get("CallSid")
     raw_status = form_data.get("CallStatus")
     if not call_sid or not raw_status:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Twilio payload")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Twilio payload"
+        )
 
     duration_raw = form_data.get("CallDuration")
-    duration = int(duration_raw) if duration_raw and str(duration_raw).isdigit() else None
+    duration = (
+        int(duration_raw) if duration_raw and str(duration_raw).isdigit() else None
+    )
 
     update_call_from_twilio_status(
         db,
@@ -66,15 +73,21 @@ def handle_twilio_status(db: Session, form_data: dict[str, Any]) -> None:
     )
 
 
-def handle_elevenlabs_post_call(db: Session, request: Request, body: bytes) -> dict[str, str]:
+def handle_elevenlabs_post_call(
+    db: Session, request: Request, body: bytes
+) -> dict[str, str]:
     signature = request.headers.get("ElevenLabs-Signature")
     if not _validate_elevenlabs_signature(body, signature):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature"
+        )
 
     try:
         payload = json.loads(body.decode("utf-8"))
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload"
+        ) from exc
 
     event_type = payload.get("type")
     data = payload.get("data") or payload
@@ -85,6 +98,8 @@ def handle_elevenlabs_post_call(db: Session, request: Request, body: bytes) -> d
     metadata = data.get("metadata") or {}
 
     transcript_summary = analysis.get("transcript_summary")
+    if not transcript_summary:
+        transcript_summary = build_transcript_from_webhook_payload(data)
     call_duration_secs = metadata.get("call_duration_secs")
 
     if conversation_id:

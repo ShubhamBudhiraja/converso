@@ -14,6 +14,7 @@ from app.models import (
     contact,
     contact_list,
     elevenlabs_connection,
+    lead,
     password_reset,
     phone_number,
     session,
@@ -55,17 +56,9 @@ def _migrate_caller_agents() -> None:
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS conversation_agents CASCADE"))
         conn.execute(
-            text(
-                "ALTER TABLE phone_numbers "
-                "DROP COLUMN IF EXISTS assigned_agent_id"
-            )
+            text("ALTER TABLE phone_numbers " "DROP COLUMN IF EXISTS assigned_agent_id")
         )
-        conn.execute(
-            text(
-                "ALTER TABLE caller_agents "
-                "DROP COLUMN IF EXISTS label"
-            )
-        )
+        conn.execute(text("ALTER TABLE caller_agents " "DROP COLUMN IF EXISTS label"))
 
 
 @asynccontextmanager
@@ -74,7 +67,9 @@ async def lifespan(app: FastAPI):
     _migrate_twilio_connections()
     _migrate_phone_numbers_elevenlabs()
     _migrate_caller_agents()
-    scheduler.add_job(check_scheduled_campaigns, "interval", minutes=1, id="campaign_scheduler")
+    scheduler.add_job(
+        check_scheduled_campaigns, "interval", minutes=1, id="campaign_scheduler"
+    )
     scheduler.start()
     yield
     scheduler.shutdown(wait=False)

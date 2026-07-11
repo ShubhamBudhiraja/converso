@@ -1,5 +1,3 @@
-"use client";
-
 import { create } from "zustand";
 
 import { ApiError, CallerAgent, DEFAULT_PAGE_SIZE, callerAgentApi, getApiErrorMessage } from "@/lib/api";

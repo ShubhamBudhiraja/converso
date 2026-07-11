@@ -30,6 +30,22 @@ class ImportContactListRequest(BaseModel):
     country_code: str = Field(default="+1", max_length=4)
 
 
+class UpdateContactListRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+
+
+class ContactListImportErrorGroup(BaseModel):
+    label: str
+    rows: list[int]
+
+
+class ContactListValidationResponse(BaseModel):
+    valid_count: int
+    total_rows: int
+    error_groups: list[ContactListImportErrorGroup]
+    can_import_partial: bool
+
+
 class ContactListResponse(BaseModel):
     id: str
     name: str

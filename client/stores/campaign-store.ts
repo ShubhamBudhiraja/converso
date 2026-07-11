@@ -1,5 +1,3 @@
-"use client";
-
 import { create } from "zustand";
 
 import {
@@ -52,8 +50,11 @@ type CampaignStore = {
     address_column?: string;
     second_phone_column?: string;
     country_code?: string;
+    accept_partial?: boolean;
   }) => Promise<void>;
   deleteContactList: (id: string) => Promise<void>;
+  updateContactList: (id: string, data: { name: string }) => Promise<void>;
+  downloadContactListCsv: (list: ContactList) => Promise<void>;
 
   fetchCampaigns: (page?: number) => Promise<void>;
   setCampaignsPage: (page: number) => void;
@@ -151,6 +152,33 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       throw err;
     } finally {
       set({ actionLoading: false });
+    }
+  },
+
+  async updateContactList(id, data) {
+    set({ actionLoading: true });
+    try {
+      await campaignApi.updateContactList(id, data);
+      await get().fetchContactLists();
+    } catch (err) {
+      set({
+        contactListsError: getErrorMessage(err, "Failed to update contact list"),
+      });
+      throw err;
+    } finally {
+      set({ actionLoading: false });
+    }
+  },
+
+  async downloadContactListCsv(list) {
+    set({ contactListsError: null });
+    try {
+      await campaignApi.downloadContactListCsv(list.id, list.name);
+    } catch (err) {
+      set({
+        contactListsError: getErrorMessage(err, "Failed to download contact list"),
+      });
+      throw err;
     }
   },
 

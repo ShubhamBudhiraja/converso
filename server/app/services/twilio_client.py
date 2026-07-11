@@ -52,13 +52,19 @@ def test_twilio_credentials(account_sid: str, auth_token: str) -> TwilioAccountI
         )
     except TwilioRestException as exc:
         if exc.status == 401:
-            raise TwilioClientError("Invalid Twilio Account SID or Auth Token", 401) from exc
-        raise TwilioClientError(exc.msg or "Failed to connect to Twilio", exc.status) from exc
+            raise TwilioClientError(
+                "Invalid Twilio Account SID or Auth Token", 401
+            ) from exc
+        raise TwilioClientError(
+            exc.msg or "Failed to connect to Twilio", exc.status
+        ) from exc
     except TwilioException as exc:
         raise TwilioClientError(str(exc)) from exc
 
 
-def list_twilio_phone_numbers(account_sid: str, auth_token: str) -> list[TwilioPhoneNumberInfo]:
+def list_twilio_phone_numbers(
+    account_sid: str, auth_token: str
+) -> list[TwilioPhoneNumberInfo]:
     try:
         client = _create_client(account_sid, auth_token)
         numbers = client.incoming_phone_numbers.list(limit=200)
@@ -75,7 +81,9 @@ def list_twilio_phone_numbers(account_sid: str, auth_token: str) -> list[TwilioP
     except TwilioRestException as exc:
         if exc.status == 401:
             raise TwilioClientError("Invalid Twilio credentials", 401) from exc
-        raise TwilioClientError(exc.msg or "Failed to list Twilio phone numbers", exc.status) from exc
+        raise TwilioClientError(
+            exc.msg or "Failed to list Twilio phone numbers", exc.status
+        ) from exc
     except TwilioException as exc:
         raise TwilioClientError(str(exc)) from exc
 
@@ -102,7 +110,9 @@ def find_twilio_phone_number(
     except TwilioRestException as exc:
         if exc.status == 401:
             raise TwilioClientError("Invalid Twilio credentials", 401) from exc
-        raise TwilioClientError(exc.msg or "Failed to look up phone number in Twilio", exc.status) from exc
+        raise TwilioClientError(
+            exc.msg or "Failed to look up phone number in Twilio", exc.status
+        ) from exc
     except TwilioException as exc:
         raise TwilioClientError(str(exc)) from exc
 

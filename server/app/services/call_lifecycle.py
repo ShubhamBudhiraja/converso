@@ -80,6 +80,12 @@ def update_call_from_twilio_status(
     db.commit()
     db.refresh(call)
     maybe_complete_campaign(db, call.campaign_id)
+
+    if call.status in TERMINAL_CALL_STATUSES:
+        from app.services.leads import create_or_update_lead_from_call
+
+        create_or_update_lead_from_call(db, call)
+
     return call
 
 
@@ -96,7 +102,10 @@ def update_call_from_elevenlabs_post_call(
     if not call and agent_id:
         call = (
             db.query(Call)
-            .filter(Call.conversation_id.is_(None), Call.status.in_(["initiated", "ringing", "in_progress"]))
+            .filter(
+                Call.conversation_id.is_(None),
+                Call.status.in_(["initiated", "ringing", "in_progress"]),
+            )
             .order_by(Call.created_at.desc())
             .first()
         )
@@ -122,7 +131,20 @@ def update_call_from_elevenlabs_post_call(
     db.commit()
     db.refresh(call)
     maybe_complete_campaign(db, call.campaign_id)
+
+    from app.services.leads import create_or_update_lead_from_call
+
+    create_or_update_lead_from_call(db, call)
+
     return call
+
+
+def _call_is_finished(call: Call) -> bool:
+    if call.status in TERMINAL_CALL_STATUSES:
+        return True
+    if call.transcription_summary:
+        return True
+    return False
 
 
 def maybe_complete_campaign(db: Session, campaign_id: str) -> None:
@@ -132,9 +154,7 @@ def maybe_complete_campaign(db: Session, campaign_id: str) -> None:
 
     list_ids = json.loads(campaign.list_ids)
     total_contacts = (
-        db.query(Contact)
-        .filter(Contact.contact_list_id.in_(list_ids))
-        .count()
+        db.query(Contact).filter(Contact.contact_list_id.in_(list_ids)).count()
     )
     if total_contacts == 0:
         return
@@ -142,7 +162,7 @@ def maybe_complete_campaign(db: Session, campaign_id: str) -> None:
     calls = db.query(Call).filter(Call.campaign_id == campaign_id).all()
     if len(calls) < total_contacts:
         return
-    if all(call.status in TERMINAL_CALL_STATUSES for call in calls):
+    if all(_call_is_finished(call) for call in calls):
         campaign.status = "completed"
         campaign.completed_at = datetime.now(timezone.utc)
         db.commit()
@@ -154,6 +174,8 @@ def get_campaign_call_stats(db: Session, campaign_id: str) -> dict[str, int]:
         "calls_initiated": len(calls),
         "calls_completed": sum(1 for call in calls if call.status == "completed"),
         "calls_failed": sum(
-            1 for call in calls if call.status in {"failed", "busy", "no_answer", "cancelled"}
+            1
+            for call in calls
+            if call.status in {"failed", "busy", "no_answer", "cancelled"}
         ),
     }

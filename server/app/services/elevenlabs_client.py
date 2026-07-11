@@ -72,7 +72,9 @@ def _handle_response(response: httpx.Response) -> Any:
     if 400 <= response.status_code < 500:
         raise ElevenLabsClientError(_parse_error(response), response.status_code)
     if response.status_code >= 500:
-        raise ElevenLabsClientError("ElevenLabs service is temporarily unavailable", response.status_code)
+        raise ElevenLabsClientError(
+            "ElevenLabs service is temporarily unavailable", response.status_code
+        )
     if response.status_code == 204 or not response.content.strip():
         return None
     return response.json()
@@ -80,7 +82,9 @@ def _handle_response(response: httpx.Response) -> Any:
 
 def validate_api_key(api_key: str) -> ElevenLabsUserInfo:
     with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-        user_response = client.get(f"{ELEVENLABS_API_BASE}/user", headers=_headers(api_key))
+        user_response = client.get(
+            f"{ELEVENLABS_API_BASE}/user", headers=_headers(api_key)
+        )
         _handle_response(user_response)
 
         subscription_tier = None
@@ -136,7 +140,9 @@ def get_agent(api_key: str, agent_id: str) -> dict[str, Any]:
 
 def list_voices(api_key: str) -> list[ElevenLabsVoiceInfo]:
     with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-        response = client.get(f"{ELEVENLABS_API_BASE}/voices", headers=_headers(api_key))
+        response = client.get(
+            f"{ELEVENLABS_API_BASE}/voices", headers=_headers(api_key)
+        )
         data = _handle_response(response)
         voices = data.get("voices", [])
         return [

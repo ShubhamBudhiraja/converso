@@ -6,7 +6,12 @@ from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.core.encryption import EncryptionError, decrypt_value, encrypt_value, mask_secret
+from app.core.encryption import (
+    EncryptionError,
+    decrypt_value,
+    encrypt_value,
+    mask_secret,
+)
 from app.models.phone_number import PhoneNumber
 from app.models.twilio_connection import TwilioConnection
 from app.models.user import User
@@ -51,7 +56,9 @@ def _connection_response(
 
     return TwilioConnectionResponse(
         id=connection.id,
-        account_sid_masked=mask_secret(connection.account_sid, visible_start=2, visible_end=4),
+        account_sid_masked=mask_secret(
+            connection.account_sid, visible_start=2, visible_end=4
+        ),
         auth_token_masked=mask_secret(token_for_mask, visible_start=0, visible_end=4),
         label=connection.label,
         is_valid=connection.is_valid,
@@ -148,7 +155,9 @@ def list_twilio_connections(
 
     try:
         items = [
-            _connection_response(connection, phone_number_count=counts.get(connection.id, 0))
+            _connection_response(
+                connection, phone_number_count=counts.get(connection.id, 0)
+            )
             for connection in connections
         ]
         return PaginatedResponse(
@@ -514,7 +523,9 @@ def purchase_phone_number(
     return _phone_number_response(phone_number)
 
 
-def get_saved_phone_number(db: Session, user: User, phone_number_id: str) -> PhoneNumberResponse:
+def get_saved_phone_number(
+    db: Session, user: User, phone_number_id: str
+) -> PhoneNumberResponse:
     phone_number = (
         _phone_number_query(db, user.id)
         .filter(PhoneNumber.id == phone_number_id)

@@ -1,5 +1,3 @@
-"use client";
-
 import { create } from "zustand";
 
 import { ApiError, SessionExpiredError, UserResponse, authApi } from "@/lib/api";
