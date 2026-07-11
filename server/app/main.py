@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.api.v1.router import api_router
+from app.core.security import FRONTEND_URL
 from app.database.connection import Base, engine
 from app.models import (
     call,
@@ -77,9 +78,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Converso API", lifespan=lifespan)
 
+_cors_origins = ["http://localhost:3000", FRONTEND_URL.rstrip("/")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
