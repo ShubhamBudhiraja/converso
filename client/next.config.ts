@@ -1,16 +1,8 @@
 import type { NextConfig } from "next";
 
-const backendUrl = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
-
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${backendUrl}/api/v1/:path*`,
-      },
-    ];
-  },
+  // API requests are proxied via app/api/v1/[...path]/route.ts so auth
+  // cookies are set on the Vercel domain correctly.
 };
 
 export default nextConfig;
