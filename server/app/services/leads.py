@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.call import Call
@@ -194,16 +194,37 @@ def list_leads(
     page_size: int,
     status_filter: Optional[str] = None,
     campaign_id: Optional[str] = None,
+    search: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ) -> PaginatedResponse[LeadResponse]:
-    query = (
-        db.query(Lead).filter(Lead.user_id == user.id).order_by(Lead.created_at.desc())
-    )
+    query = db.query(Lead).filter(Lead.user_id == user.id)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = (
+            query.outerjoin(Contact, Lead.contact_id == Contact.id)
+            .outerjoin(Call, Lead.call_id == Call.id)
+            .filter(
+                or_(
+                    Contact.first_name.ilike(term),
+                    Contact.last_name.ilike(term),
+                    Contact.phone_number.ilike(term),
+                    Call.phone_number.ilike(term),
+                )
+            )
+        )
+
     if status_filter:
         query = query.filter(Lead.status == status_filter)
     if campaign_id:
         query = query.filter(Lead.campaign_id == campaign_id)
+    if start_date:
+        query = query.filter(func.date(Lead.created_at) >= start_date)
+    if end_date:
+        query = query.filter(func.date(Lead.created_at) <= end_date)
 
-    all_leads = query.all()
+    all_leads = query.order_by(Lead.created_at.desc()).all()
     items, total = slice_page(all_leads, page, page_size)
     return PaginatedResponse(
         items=[_lead_response(db, item) for item in items],

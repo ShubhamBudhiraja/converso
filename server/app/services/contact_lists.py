@@ -19,6 +19,7 @@ from app.schemas.campaign import (
     ImportContactListRequest,
 )
 from app.schemas.pagination import PaginatedResponse, slice_page
+from app.services.campaign_resource_guards import assert_contact_list_not_used_by_campaign
 
 PHONE_PATTERN = re.compile(r"^[\+]?[1-9][\d]{0,15}$")
 
@@ -284,6 +285,9 @@ def list_contacts(
 
 def delete_contact_list(db: Session, user: User, list_id: str) -> None:
     contact_list = _get_contact_list_or_404(db, user.id, list_id)
+    assert_contact_list_not_used_by_campaign(
+        db, user.id, list_id, action="deleted"
+    )
     db.delete(contact_list)
     db.commit()
 
@@ -295,6 +299,7 @@ def update_contact_list(
     name: str,
 ) -> ContactListResponse:
     contact_list = _get_contact_list_or_404(db, user.id, list_id)
+    assert_contact_list_not_used_by_campaign(db, user.id, list_id)
     contact_list.name = name.strip()
     db.commit()
     db.refresh(contact_list)

@@ -34,6 +34,10 @@ from app.services.ai import (
     _handle_elevenlabs_error,
     get_elevenlabs_connection_for_user,
 )
+from app.services.campaign_resource_guards import (
+    assert_phone_number_not_used_by_campaign,
+    assert_twilio_connection_not_used_by_campaign,
+)
 from app.services.elevenlabs_client import ElevenLabsClientError, import_phone_number
 from app.services.twilio_client import (
     TwilioClientError,
@@ -237,6 +241,7 @@ def update_twilio_connection(
     payload: UpdateTwilioConnectionRequest,
 ) -> TwilioConnectionResponse:
     connection = _get_connection_by_id_or_404(db, user.id, connection_id)
+    assert_twilio_connection_not_used_by_campaign(db, user.id, connection_id)
 
     if payload.label is not None:
         connection.label = payload.label
@@ -269,6 +274,9 @@ def update_twilio_connection(
 
 def delete_twilio_connection(db: Session, user: User, connection_id: str) -> None:
     connection = _get_connection_by_id_or_404(db, user.id, connection_id)
+    assert_twilio_connection_not_used_by_campaign(
+        db, user.id, connection_id, action="deleted"
+    )
     db.delete(connection)
     db.commit()
 
@@ -291,6 +299,9 @@ def bulk_delete_twilio_connections(
     not_found_ids = [item for item in unique_ids if item not in found_ids]
 
     for connection in connections:
+        assert_twilio_connection_not_used_by_campaign(
+            db, user.id, connection.id, action="deleted"
+        )
         db.delete(connection)
 
     db.commit()
@@ -550,6 +561,9 @@ def delete_saved_phone_number(db: Session, user: User, phone_number_id: str) -> 
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Phone number not found",
         )
+    assert_phone_number_not_used_by_campaign(
+        db, user.id, phone_number_id, action="deleted"
+    )
     db.delete(phone_number)
     db.commit()
 
@@ -572,6 +586,9 @@ def bulk_delete_phone_numbers(
     not_found_ids = [item for item in unique_ids if item not in found_ids]
 
     for phone_number in phone_numbers:
+        assert_phone_number_not_used_by_campaign(
+            db, user.id, phone_number.id, action="deleted"
+        )
         db.delete(phone_number)
 
     db.commit()
@@ -597,6 +614,7 @@ def register_phone_number_with_elevenlabs(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Phone number not found",
         )
+    assert_phone_number_not_used_by_campaign(db, user.id, phone_number_id)
 
     if phone_number.elevenlabs_phone_number_id:
         raise HTTPException(

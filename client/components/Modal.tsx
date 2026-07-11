@@ -17,7 +17,7 @@ export function Modal({ open, title, children, onClose }: ModalProps) {
             <button
                 type="button"
                 aria-label="Close modal"
-                className="absolute inset-0 cursor-pointer bg-black/40"
+                className="absolute inset-0 bg-black/40"
                 onClick={onClose}
             />
             <div className="relative w-full max-w-lg rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
@@ -29,6 +29,7 @@ export function Modal({ open, title, children, onClose }: ModalProps) {
                         variant="icon"
                         onClick={onClose}
                         aria-label="Close modal"
+                        className="w-9"
                     >
                         ✕
                     </Button>

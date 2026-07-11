@@ -45,7 +45,7 @@ export async function refreshAccessToken(): Promise<boolean> {
 }
 
 export function handleSessionExpired(message = SESSION_EXPIRED_MESSAGE): never {
-  void import("@/stores/user-store").then(({ useUserStore }) => {
+  import("@/stores/user-store").then(({ useUserStore }) => {
     useUserStore.getState().reset();
   });
 

@@ -59,7 +59,7 @@ export default function ContactListsPage() {
                 lists={contactLists}
                 loading={contactListsLoading}
                 onEdit={setEditListTarget}
-                onDownload={(list) => void downloadContactListCsv(list)}
+                onDownload={(list) => downloadContactListCsv(list)}
                 onDelete={setDeleteListTarget}
                 page={contactListsPage}
                 pageSize={contactListsPageSize}

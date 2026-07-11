@@ -137,7 +137,7 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
 
   setConnectionsPage(page) {
     set({ connectionsPage: page });
-    void get().fetchConnections(page);
+    get().fetchConnections(page);
   },
 
   async createConnection(data) {
@@ -257,7 +257,7 @@ export const usePhoneStore = create<PhoneStore>((set, get) => ({
     const connectionId = get().currentConnection?.id;
     if (!connectionId) return;
     set({ phoneNumbersPage: page });
-    void get().fetchPhoneNumbers(connectionId, page);
+    get().fetchPhoneNumbers(connectionId, page);
   },
 
   async testConnection(connectionId) {

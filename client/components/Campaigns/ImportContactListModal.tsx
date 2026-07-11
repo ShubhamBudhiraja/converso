@@ -245,7 +245,7 @@ export function ImportContactListModal({
                             <Button
                                 onClick={() => {
                                     if (!pendingImport) return;
-                                    void submitImport(pendingImport, {
+                                    submitImport(pendingImport, {
                                         accept_partial: true,
                                     });
                                 }}
@@ -295,7 +295,7 @@ export function ImportContactListModal({
                             onChange={(event) => {
                                 const nextFile =
                                     event.target.files?.[0] ?? null;
-                                void handleFileChange(nextFile);
+                                handleFileChange(nextFile);
                             }}
                         />
                     </div>

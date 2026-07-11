@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { CampaignCallsTable } from "@/components/Campaigns/CampaignCallsTable";
 import { CampaignStatusBadge } from "@/components/Campaigns/CampaignStatusBadge";
+import { EditCampaignModal } from "@/components/Campaigns/EditCampaignModal";
+import { PencilIcon } from "@/components/Icons";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/format";
+import { canEditCampaign } from "@/lib/campaigns";
 import { useCampaignStore } from "@/stores/campaign-store";
 
 export default function CampaignDetailPage() {
@@ -19,23 +22,27 @@ export default function CampaignDetailPage() {
     const {
         currentCampaign,
         campaignCalls,
-        detailLoading,
+        contactLists,
         detailError,
         callsPage,
         callsTotal,
         callsPageSize,
         actionLoading,
         fetchCampaignDetail,
+        fetchContactLists,
         startCampaign,
         cancelCampaign,
+        updateCampaign,
         setCallsPage,
         resetDetail,
     } = useCampaignStore();
 
+    const [editOpen, setEditOpen] = useState(false);
+
     useEffect(() => {
         fetchCampaignDetail(campaignId);
         const interval = setInterval(() => {
-            void fetchCampaignDetail(campaignId);
+            fetchCampaignDetail(campaignId, { silent: true });
         }, 10000);
         return () => {
             clearInterval(interval);
@@ -43,10 +50,15 @@ export default function CampaignDetailPage() {
         };
     }, [campaignId, fetchCampaignDetail, resetDetail]);
 
-    const isLoading =
-        detailLoading ||
-        (!detailError &&
-            (currentCampaign === null || currentCampaign.id !== campaignId));
+    useEffect(() => {
+        if (editOpen) {
+            fetchContactLists();
+        }
+    }, [editOpen, fetchContactLists]);
+
+    const isInitialLoading =
+        !detailError &&
+        (currentCampaign === null || currentCampaign.id !== campaignId);
 
     return (
         <div className="space-y-6">
@@ -56,33 +68,48 @@ export default function CampaignDetailPage() {
                 </Link>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-                            {isLoading ? (
-                                <Skeleton className="h-8 w-64 max-w-full" />
-                            ) : (
-                                currentCampaign?.name
-                            )}
-                        </h1>
-                        {!isLoading && currentCampaign && (
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+                                {isInitialLoading ? (
+                                    <Skeleton className="h-8 w-64 max-w-full" />
+                                ) : (
+                                    currentCampaign?.name
+                                )}
+                            </h1>
+                            {!isInitialLoading &&
+                                currentCampaign &&
+                                canEditCampaign(currentCampaign) && (
+                                    <Button
+                                        variant="icon"
+                                        title="Edit campaign"
+                                        aria-label="Edit campaign"
+                                        disabled={actionLoading}
+                                        onClick={() => setEditOpen(true)}
+                                    >
+                                        <PencilIcon />
+                                    </Button>
+                                )}
+                        </div>
+                        {!isInitialLoading && currentCampaign && (
                             <div className="mt-2 flex items-center gap-2">
-                                <CampaignStatusBadge status={currentCampaign.status} />
+                                <CampaignStatusBadge
+                                    status={currentCampaign.status}
+                                />
                                 <span className="text-sm text-zinc-500">
-                                    Scheduled {formatDate(currentCampaign.scheduled_at)}
+                                    Scheduled{" "}
+                                    {formatDate(currentCampaign.scheduled_at)}
                                 </span>
                             </div>
                         )}
                     </div>
-                    {!isLoading && currentCampaign && (
+                    {!isInitialLoading && currentCampaign && (
                         <div className="flex gap-2">
-                            {(currentCampaign.status === "scheduled" ||
-                                currentCampaign.status === "running") && (
+                            {currentCampaign.status === "scheduled" && (
                                 <Button
                                     disabled={actionLoading}
-                                    onClick={() => void startCampaign(campaignId)}
+                                    onClick={() => startCampaign(campaignId)}
                                 >
-                                    {currentCampaign.status === "running"
-                                        ? "Resume dialing"
-                                        : "Start now"}
+                                    Start now
                                 </Button>
                             )}
                             {(currentCampaign.status === "scheduled" ||
@@ -90,7 +117,7 @@ export default function CampaignDetailPage() {
                                 <Button
                                     variant="secondary"
                                     disabled={actionLoading}
-                                    onClick={() => void cancelCampaign(campaignId)}
+                                    onClick={() => cancelCampaign(campaignId)}
                                 >
                                     Cancel campaign
                                 </Button>
@@ -102,9 +129,12 @@ export default function CampaignDetailPage() {
 
             <Alert message={detailError} />
 
-            {!isLoading && currentCampaign && (
+            {!isInitialLoading && currentCampaign && (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatCard label="Contacts" value={currentCampaign.total_contacts} />
+                    <StatCard
+                        label="Contacts"
+                        value={currentCampaign.total_contacts}
+                    />
                     <StatCard
                         label="Calls initiated"
                         value={currentCampaign.calls_initiated}
@@ -113,7 +143,10 @@ export default function CampaignDetailPage() {
                         label="Completed"
                         value={currentCampaign.calls_completed}
                     />
-                    <StatCard label="Failed" value={currentCampaign.calls_failed} />
+                    <StatCard
+                        label="Failed"
+                        value={currentCampaign.calls_failed}
+                    />
                 </div>
             )}
 
@@ -123,13 +156,24 @@ export default function CampaignDetailPage() {
                 </h2>
                 <CampaignCallsTable
                     calls={campaignCalls}
-                    loading={isLoading}
+                    loading={isInitialLoading}
                     page={callsPage}
                     pageSize={callsPageSize}
                     total={callsTotal}
                     onPageChange={setCallsPage}
                 />
             </section>
+
+            <EditCampaignModal
+                open={editOpen}
+                loading={actionLoading}
+                campaign={currentCampaign}
+                contactLists={contactLists}
+                onClose={() => setEditOpen(false)}
+                onSubmit={async (data) => {
+                    await updateCampaign(campaignId, data);
+                }}
+            />
         </div>
     );
 }

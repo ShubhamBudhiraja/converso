@@ -27,6 +27,10 @@ from app.schemas.ai import (
     UpdateElevenLabsConnectionRequest,
 )
 from app.schemas.pagination import PaginatedResponse, slice_page
+from app.services.campaign_resource_guards import (
+    assert_elevenlabs_agent_not_used_by_campaign,
+    assert_elevenlabs_connection_not_used_by_campaign,
+)
 from app.services.elevenlabs_client import (
     ElevenLabsClientError,
     create_agent,
@@ -220,6 +224,7 @@ def update_elevenlabs_connection(
     payload: UpdateElevenLabsConnectionRequest,
 ) -> ElevenLabsConnectionResponse:
     connection = _get_connection_by_id_or_404(db, user.id, connection_id)
+    assert_elevenlabs_connection_not_used_by_campaign(db, user.id, connection_id)
 
     if payload.label is not None:
         connection.label = payload.label
@@ -235,6 +240,9 @@ def delete_elevenlabs_connection(
     connection_id: str,
 ) -> None:
     connection = _get_connection_by_id_or_404(db, user.id, connection_id)
+    assert_elevenlabs_connection_not_used_by_campaign(
+        db, user.id, connection_id, action="deleted"
+    )
 
     (
         db.query(PhoneNumber)
@@ -447,6 +455,9 @@ def update_elevenlabs_agent(
     payload: UpdateElevenLabsAgentRequest,
 ) -> ElevenLabsAgentDetailResponse:
     connection = _get_connection_by_id_or_404(db, user.id, connection_id)
+    assert_elevenlabs_agent_not_used_by_campaign(
+        db, user.id, connection_id, agent_id
+    )
 
     if (
         payload.name is None
@@ -485,6 +496,9 @@ def delete_elevenlabs_agent(
     agent_id: str,
 ) -> None:
     connection = _get_connection_by_id_or_404(db, user.id, connection_id)
+    assert_elevenlabs_agent_not_used_by_campaign(
+        db, user.id, connection_id, agent_id, action="deleted"
+    )
     try:
         api_key = _get_decrypted_api_key(connection)
         delete_agent(api_key, agent_id)

@@ -1,21 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+import { LeadsFilters } from "@/components/Leads/LeadsFilters";
 import { LeadsTable } from "@/components/Leads/LeadsTable";
 import { Alert } from "@/components/ui/Alert";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { LeadStatus } from "@/lib/api";
+import { Campaign, campaignApi } from "@/lib/api";
 import { useLeadStore } from "@/stores/lead-store";
-
-const STATUS_OPTIONS: Array<{ value: LeadStatus | ""; label: string }> = [
-    { value: "", label: "All statuses" },
-    { value: "new_lead", label: "Connected" },
-    { value: "voicemail", label: "No answer" },
-    { value: "dead", label: "Not connected" },
-];
 
 export default function LeadsPage() {
     const {
@@ -25,19 +18,63 @@ export default function LeadsPage() {
         leadsPage,
         leadsTotal,
         leadsPageSize,
+        searchQuery,
         statusFilter,
+        campaignFilter,
+        datePreset,
+        customStart,
+        customEnd,
         statistics,
         statisticsLoading,
         fetchLeads,
         fetchStatistics,
         setLeadsPage,
+        setSearchQuery,
         setStatusFilter,
+        setCampaignFilter,
+        setDatePreset,
+        setCustomStart,
+        setCustomEnd,
     } = useLeadStore();
+
+    const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+    const [campaignsLoading, setCampaignsLoading] = useState(true);
 
     useEffect(() => {
         fetchLeads();
         fetchStatistics();
     }, [fetchLeads, fetchStatistics]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadCampaigns() {
+            setCampaignsLoading(true);
+            try {
+                const data = await campaignApi.listCampaigns({
+                    page: 1,
+                    page_size: 100,
+                });
+                if (!cancelled) {
+                    setCampaigns(data.items);
+                }
+            } catch {
+                if (!cancelled) {
+                    setCampaigns([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setCampaignsLoading(false);
+                }
+            }
+        }
+
+        loadCampaigns();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -71,28 +108,22 @@ export default function LeadsPage() {
                 />
             </section>
 
-            <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-                    All leads
-                </h2>
-                <div className="w-48">
-                    <Select
-                        label=""
-                        value={statusFilter}
-                        onChange={(event) =>
-                            setStatusFilter(
-                                event.target.value as LeadStatus | "",
-                            )
-                        }
-                    >
-                        {STATUS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </Select>
-                </div>
-            </div>
+            <LeadsFilters
+                searchQuery={searchQuery}
+                statusFilter={statusFilter}
+                campaignFilter={campaignFilter}
+                datePreset={datePreset}
+                customStart={customStart}
+                customEnd={customEnd}
+                campaigns={campaigns}
+                campaignsLoading={campaignsLoading}
+                onSearchChange={setSearchQuery}
+                onStatusChange={setStatusFilter}
+                onCampaignChange={setCampaignFilter}
+                onDatePresetChange={setDatePreset}
+                onCustomStartChange={setCustomStart}
+                onCustomEndChange={setCustomEnd}
+            />
 
             <LeadsTable
                 leads={leads}

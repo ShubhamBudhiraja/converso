@@ -10,7 +10,7 @@ type ConfirmDialogProps = {
   cancelLabel?: string;
   loading?: boolean;
   destructive?: boolean;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 };
 
@@ -26,6 +26,14 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   if (!open) return null;
+
+  async function handleConfirm() {
+    try {
+      await onConfirm();
+    } catch {
+      // Caller handles error display (page alert, form error, etc.)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -44,7 +52,7 @@ export function ConfirmDialog({
           </Button>
           <Button
             variant={destructive ? "danger-solid" : "primary"}
-            onClick={onConfirm}
+            onClick={() => void handleConfirm()}
             disabled={loading}
           >
             {loading ? "Please wait..." : confirmLabel}

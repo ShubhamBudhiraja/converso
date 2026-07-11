@@ -2,10 +2,12 @@ import json
 import logging
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session, joinedload
 
 from app.database.connection import SessionLocal
@@ -26,9 +28,71 @@ from app.services.campaign_execution import execute_campaign
 
 logger = logging.getLogger(__name__)
 
+CAMPAIGN_EDIT_LOCK_MINUTES = 5
+
+_execution_guard = threading.Lock()
+_active_campaign_executions: set[str] = set()
+
 
 def _parse_list_ids(raw: str) -> list[str]:
     return json.loads(raw)
+
+
+def _scheduled_at_utc(campaign: Campaign) -> datetime:
+    scheduled_at = campaign.scheduled_at
+    if scheduled_at.tzinfo is None:
+        try:
+            local_tz = ZoneInfo(campaign.timezone)
+            scheduled_at = scheduled_at.replace(tzinfo=local_tz)
+        except Exception:
+            scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+    return scheduled_at.astimezone(timezone.utc)
+
+
+def _normalize_scheduled_at(scheduled_at: datetime) -> datetime:
+    if scheduled_at.tzinfo is None:
+        return scheduled_at.replace(tzinfo=timezone.utc)
+    return scheduled_at.astimezone(timezone.utc)
+
+
+def _assert_campaign_editable(campaign: Campaign) -> None:
+    if campaign.status == "running":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This campaign is running. You cannot edit it anymore.",
+        )
+    if campaign.status != "scheduled":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only scheduled campaigns can be updated",
+        )
+
+    now = datetime.now(timezone.utc)
+    scheduled_at = _scheduled_at_utc(campaign)
+    lock_at = scheduled_at - timedelta(minutes=CAMPAIGN_EDIT_LOCK_MINUTES)
+
+    if now >= scheduled_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This campaign is running. You cannot edit it anymore.",
+        )
+    if now >= lock_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Campaigns cannot be edited within 5 minutes of the scheduled start time.",
+        )
+
+
+def _validate_new_scheduled_at(scheduled_at: datetime) -> datetime:
+    normalized = _normalize_scheduled_at(scheduled_at)
+    now = datetime.now(timezone.utc)
+    minimum_start = now + timedelta(minutes=CAMPAIGN_EDIT_LOCK_MINUTES)
+    if normalized < minimum_start:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Scheduled start must be at least 5 minutes from now.",
+        )
+    return normalized
 
 
 def _campaign_response(db: Session, campaign: Campaign) -> CampaignResponse:
@@ -249,11 +313,7 @@ def update_campaign(
     payload: UpdateCampaignRequest,
 ) -> CampaignResponse:
     campaign = _get_campaign_or_404(db, user.id, campaign_id)
-    if campaign.status != "scheduled":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only scheduled campaigns can be updated",
-        )
+    _assert_campaign_editable(campaign)
 
     if payload.caller_agent_id is not None:
         _validate_caller_agent(db, user.id, payload.caller_agent_id)
@@ -264,12 +324,7 @@ def update_campaign(
     if payload.name is not None:
         campaign.name = payload.name
     if payload.scheduled_at is not None:
-        scheduled_at = payload.scheduled_at
-        if scheduled_at.tzinfo is None:
-            scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
-        else:
-            scheduled_at = scheduled_at.astimezone(timezone.utc)
-        campaign.scheduled_at = scheduled_at
+        campaign.scheduled_at = _validate_new_scheduled_at(payload.scheduled_at)
     if payload.schedule_settings is not None:
         campaign.timezone = payload.schedule_settings.timezone
         campaign.retry_attempts = payload.schedule_settings.retry_attempts
@@ -309,6 +364,43 @@ def delete_campaign(db: Session, user: User, campaign_id: str) -> None:
     db.commit()
 
 
+def _atomic_start_scheduled_campaign(db: Session, campaign_id: str) -> bool:
+    now = datetime.now(timezone.utc)
+    result = db.execute(
+        update(Campaign)
+        .where(Campaign.id == campaign_id, Campaign.status == "scheduled")
+        .values(status="running", started_at=now)
+    )
+    db.commit()
+    return result.rowcount > 0
+
+
+def _try_begin_execution(campaign_id: str) -> bool:
+    with _execution_guard:
+        if campaign_id in _active_campaign_executions:
+            return False
+        _active_campaign_executions.add(campaign_id)
+        return True
+
+
+def _end_execution(campaign_id: str) -> None:
+    with _execution_guard:
+        _active_campaign_executions.discard(campaign_id)
+
+
+def _spawn_campaign_execution(campaign_id: str) -> bool:
+    if not _try_begin_execution(campaign_id):
+        return False
+
+    thread = threading.Thread(
+        target=_run_campaign_in_background,
+        args=(campaign_id,),
+        daemon=True,
+    )
+    thread.start()
+    return True
+
+
 def _run_campaign_in_background(campaign_id: str) -> None:
     db = SessionLocal()
     try:
@@ -321,28 +413,28 @@ def _run_campaign_in_background(campaign_id: str) -> None:
             db.commit()
     finally:
         db.close()
+        _end_execution(campaign_id)
 
 
 def trigger_campaign_start(
     db: Session, user: User, campaign_id: str
 ) -> CampaignResponse:
     campaign = _get_campaign_or_404(db, user.id, campaign_id)
-    if campaign.status not in {"scheduled", "running"}:
+    if campaign.status != "scheduled":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only scheduled or running campaigns can be started",
+            detail="Only scheduled campaigns can be started manually",
         )
 
-    if campaign.status == "scheduled":
-        campaign.status = "running"
-        campaign.started_at = datetime.now(timezone.utc)
-        db.commit()
+    if not _atomic_start_scheduled_campaign(db, campaign_id):
+        db.refresh(campaign)
+        return _campaign_response(db, campaign)
 
-    thread = threading.Thread(
-        target=_run_campaign_in_background,
-        args=(campaign.id,),
-        daemon=True,
-    )
-    thread.start()
+    if not _spawn_campaign_execution(campaign.id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Campaign is already dialing",
+        )
+
     db.refresh(campaign)
     return _campaign_response(db, campaign)

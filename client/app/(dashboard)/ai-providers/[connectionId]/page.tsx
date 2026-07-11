@@ -163,11 +163,14 @@ export default function AiProviderDetailPage() {
                 loading={actionLoading}
                 onConfirm={async () => {
                     if (!deleteTarget) return;
-                    await deleteElevenLabsAgent(
-                        connectionId,
-                        deleteTarget.agent_id,
-                    );
-                    setDeleteTarget(null);
+                    try {
+                        await deleteElevenLabsAgent(
+                            connectionId,
+                            deleteTarget.agent_id,
+                        );
+                    } finally {
+                        setDeleteTarget(null);
+                    }
                 }}
                 onCancel={() => setDeleteTarget(null)}
             />
@@ -187,12 +190,15 @@ export default function AiProviderDetailPage() {
                 confirmLabel="Delete agents"
                 loading={actionLoading}
                 onConfirm={async () => {
-                    await bulkDeleteElevenLabsAgents(
-                        connectionId,
-                        selectedAgentIds,
-                    );
-                    setBulkDeleteOpen(false);
-                    clearAgentSelection();
+                    try {
+                        await bulkDeleteElevenLabsAgents(
+                            connectionId,
+                            selectedAgentIds,
+                        );
+                        clearAgentSelection();
+                    } finally {
+                        setBulkDeleteOpen(false);
+                    }
                 }}
                 onCancel={() => setBulkDeleteOpen(false)}
             />

@@ -693,6 +693,26 @@ export const campaignApi = {
         });
     },
 
+    updateCampaign(
+        id: string,
+        data: {
+            name?: string;
+            caller_agent_id?: string;
+            list_ids?: string[];
+            scheduled_at?: string;
+            schedule_settings?: {
+                timezone: string;
+                retry_attempts: number;
+                retry_interval: "24h" | "48h" | "72h";
+            };
+        },
+    ) {
+        return apiRequest<Campaign>(`/campaigns/${id}`, {
+            method: "PUT",
+            body: JSON.stringify(data),
+        });
+    },
+
     cancelCampaign(id: string) {
         return apiRequest<Campaign>(`/campaigns/${id}/cancel`, {
             method: "POST",
@@ -751,6 +771,9 @@ export const leadsApi = {
         params?: PaginationParams & {
             status?: LeadStatus;
             campaign_id?: string;
+            search?: string;
+            start_date?: string;
+            end_date?: string;
         },
     ) {
         const search = new URLSearchParams();
@@ -759,6 +782,9 @@ export const leadsApi = {
             search.set("page_size", String(params.page_size));
         if (params?.status) search.set("status", params.status);
         if (params?.campaign_id) search.set("campaign_id", params.campaign_id);
+        if (params?.search) search.set("search", params.search);
+        if (params?.start_date) search.set("start_date", params.start_date);
+        if (params?.end_date) search.set("end_date", params.end_date);
         const query = search.toString();
         return apiRequest<PaginatedResponse<Lead>>(
             `/leads${query ? `?${query}` : ""}`,

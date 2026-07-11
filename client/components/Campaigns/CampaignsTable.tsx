@@ -1,7 +1,7 @@
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { CampaignStatusBadge } from "@/components/Campaigns/CampaignStatusBadge";
-import { TrashIcon } from "@/components/Icons";
+import { PencilIcon, TrashIcon } from "@/components/Icons";
 import { Button } from "@/components/ui/Button";
 import { TableSkeletonRows } from "@/components/ui/Skeleton";
 import { TablePaginationFooter } from "@/components/ui/TablePaginationFooter";
@@ -16,14 +16,14 @@ import {
     TableRow,
 } from "@/components/ui/Table";
 import { formatDate } from "@/lib/format";
+import { canEditCampaign } from "@/lib/campaigns";
 import { Campaign } from "@/lib/api";
 
 type CampaignsTableProps = {
     campaigns: Campaign[];
     loading: boolean;
     onDelete: (campaign: Campaign) => void;
-    onCancel: (campaign: Campaign) => void;
-    onStart: (campaign: Campaign) => void;
+    onEdit: (campaign: Campaign) => void;
     page: number;
     pageSize: number;
     total: number;
@@ -35,14 +35,15 @@ export function CampaignsTable({
     campaigns,
     loading,
     onDelete,
-    onCancel,
-    onStart,
+    onEdit,
     page,
     pageSize,
     total,
     onPageChange,
     actionLoading,
 }: CampaignsTableProps) {
+    const router = useRouter();
+
     return (
         <Table
             toolbar={
@@ -78,14 +79,14 @@ export function CampaignsTable({
                     />
                 ) : (
                     campaigns.map((campaign) => (
-                        <TableRow key={campaign.id}>
-                            <TableCell>
-                                <Link
-                                    href={`/campaigns/${campaign.id}`}
-                                    className="font-medium text-zinc-900 hover:underline dark:text-zinc-50"
-                                >
-                                    {campaign.name}
-                                </Link>
+                        <TableRow
+                            key={campaign.id}
+                            onClick={() =>
+                                router.push(`/campaigns/${campaign.id}`)
+                            }
+                        >
+                            <TableCell className="font-medium text-zinc-900 dark:text-zinc-50">
+                                {campaign.name}
                             </TableCell>
                             <TableCell>
                                 <CampaignStatusBadge status={campaign.status} />
@@ -101,28 +102,17 @@ export function CampaignsTable({
                             <TableCell className="text-zinc-600 dark:text-zinc-400">
                                 {formatDate(campaign.scheduled_at)}
                             </TableCell>
-                            <TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
                                 <div className="flex justify-end gap-1">
-                                    {(campaign.status === "scheduled" ||
-                                        campaign.status === "running") && (
+                                    {canEditCampaign(campaign) && (
                                         <Button
-                                            variant="secondary"
+                                            variant="icon"
+                                            title="Edit campaign"
+                                            aria-label="Edit campaign"
                                             disabled={actionLoading}
-                                            onClick={() => onStart(campaign)}
+                                            onClick={() => onEdit(campaign)}
                                         >
-                                            {campaign.status === "running"
-                                                ? "Resume"
-                                                : "Start now"}
-                                        </Button>
-                                    )}
-                                    {(campaign.status === "scheduled" ||
-                                        campaign.status === "running") && (
-                                        <Button
-                                            variant="secondary"
-                                            disabled={actionLoading}
-                                            onClick={() => onCancel(campaign)}
-                                        >
-                                            Cancel
+                                            <PencilIcon />
                                         </Button>
                                     )}
                                     {campaign.status !== "running" && (

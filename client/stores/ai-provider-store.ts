@@ -133,7 +133,7 @@ export const useAiProviderStore = create<AiProviderStore>((set, get) => ({
 
   setConnectionsPage(page) {
     set({ connectionsPage: page });
-    void get().fetchConnections(page);
+    get().fetchConnections(page);
   },
 
   async createConnection(data) {
@@ -269,7 +269,7 @@ export const useAiProviderStore = create<AiProviderStore>((set, get) => ({
     const connectionId = get().currentConnection?.id;
     if (!connectionId) return;
     set({ agentsPage: page });
-    void get().fetchAgents(connectionId, page);
+    get().fetchAgents(connectionId, page);
   },
 
   async createElevenLabsAgent(connectionId, data) {
@@ -299,7 +299,6 @@ export const useAiProviderStore = create<AiProviderStore>((set, get) => ({
       await get().fetchAgents(connectionId, get().agentsPage);
     } catch (err) {
       set({ detailError: getErrorMessage(err, "Failed to delete agent") });
-      throw err;
     } finally {
       set({ actionLoading: false });
     }
@@ -315,7 +314,6 @@ export const useAiProviderStore = create<AiProviderStore>((set, get) => ({
       await get().fetchAgents(connectionId, get().agentsPage);
     } catch (err) {
       set({ detailError: getErrorMessage(err, "Failed to delete agents") });
-      throw err;
     } finally {
       set({ actionLoading: false });
     }

@@ -25,6 +25,7 @@ from app.services.elevenlabs_client import (
     list_agents,
     update_phone_number_agent,
 )
+from app.services.campaign_resource_guards import assert_caller_agent_not_used_by_campaign
 from app.services.phone import _get_connection_by_id_or_404, _get_decrypted_auth_token
 
 
@@ -228,6 +229,7 @@ def create_caller_agent(
 
 def delete_caller_agent(db: Session, user: User, agent_id: str) -> None:
     agent = _get_caller_agent_by_id_or_404(db, user.id, agent_id)
+    assert_caller_agent_not_used_by_campaign(db, user.id, agent_id)
 
     if agent.phone_number and agent.phone_number.elevenlabs_phone_number_id:
         try:

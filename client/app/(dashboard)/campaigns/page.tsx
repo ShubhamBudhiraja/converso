@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { CampaignsTable } from "@/components/Campaigns/CampaignsTable";
 import { CreateCampaignModal } from "@/components/Campaigns/CreateCampaignModal";
+import { EditCampaignModal } from "@/components/Campaigns/EditCampaignModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -26,13 +27,14 @@ export default function CampaignsPage() {
         fetchContactLists,
         fetchCampaigns,
         createCampaign,
-        cancelCampaign,
-        startCampaign,
+        updateCampaign,
         deleteCampaign,
         setCampaignsPage,
     } = useCampaignStore();
 
     const [createOpen, setCreateOpen] = useState(false);
+    const [editCampaignTarget, setEditCampaignTarget] =
+        useState<Campaign | null>(null);
     const [deleteCampaignTarget, setDeleteCampaignTarget] =
         useState<Campaign | null>(null);
 
@@ -41,10 +43,10 @@ export default function CampaignsPage() {
     }, [fetchCampaigns]);
 
     useEffect(() => {
-        if (createOpen) {
+        if (createOpen || editCampaignTarget) {
             fetchContactLists();
         }
-    }, [createOpen, fetchContactLists]);
+    }, [createOpen, editCampaignTarget, fetchContactLists]);
 
     return (
         <div className="space-y-6">
@@ -66,8 +68,7 @@ export default function CampaignsPage() {
                 loading={campaignsLoading}
                 actionLoading={actionLoading}
                 onDelete={setDeleteCampaignTarget}
-                onCancel={(campaign) => void cancelCampaign(campaign.id)}
-                onStart={(campaign) => void startCampaign(campaign.id)}
+                onEdit={setEditCampaignTarget}
                 page={campaignsPage}
                 pageSize={campaignsPageSize}
                 total={campaignsTotal}
@@ -82,6 +83,19 @@ export default function CampaignsPage() {
                 onSubmit={async (data) => {
                     const campaign = await createCampaign(data);
                     router.push(`/campaigns/${campaign.id}`);
+                }}
+            />
+
+            <EditCampaignModal
+                open={!!editCampaignTarget}
+                loading={actionLoading}
+                campaign={editCampaignTarget}
+                contactLists={contactLists}
+                onClose={() => setEditCampaignTarget(null)}
+                onSubmit={async (data) => {
+                    if (!editCampaignTarget) return;
+                    await updateCampaign(editCampaignTarget.id, data);
+                    setEditCampaignTarget(null);
                 }}
             />
 

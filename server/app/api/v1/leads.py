@@ -28,6 +28,9 @@ def list_leads(
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     status: Optional[str] = Query(default=None),
     campaign_id: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    start_date: Optional[str] = Query(default=None),
+    end_date: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -38,6 +41,9 @@ def list_leads(
         page_size,
         status_filter=status,
         campaign_id=campaign_id,
+        search=search,
+        start_date=start_date,
+        end_date=end_date,
     )
 
 

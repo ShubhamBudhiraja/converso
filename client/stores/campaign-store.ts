@@ -69,11 +69,25 @@ type CampaignStore = {
       retry_interval: "24h" | "48h" | "72h";
     };
   }) => Promise<Campaign>;
+  updateCampaign: (
+    id: string,
+    data: {
+      name?: string;
+      caller_agent_id?: string;
+      list_ids?: string[];
+      scheduled_at?: string;
+      schedule_settings?: {
+        timezone: string;
+        retry_attempts: number;
+        retry_interval: "24h" | "48h" | "72h";
+      };
+    },
+  ) => Promise<Campaign>;
   cancelCampaign: (id: string) => Promise<void>;
   startCampaign: (id: string) => Promise<void>;
   deleteCampaign: (id: string) => Promise<void>;
 
-  fetchCampaignDetail: (id: string) => Promise<void>;
+  fetchCampaignDetail: (id: string, options?: { silent?: boolean }) => Promise<void>;
   setCallsPage: (page: number) => void;
   resetDetail: () => void;
 };
@@ -127,7 +141,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
 
   setContactListsPage(page) {
     set({ contactListsPage: page });
-    void get().fetchContactLists(page);
+    get().fetchContactLists(page);
   },
 
   async importContactList(data) {
@@ -206,7 +220,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
 
   setCampaignsPage(page) {
     set({ campaignsPage: page });
-    void get().fetchCampaigns(page);
+    get().fetchCampaigns(page);
   },
 
   async createCampaign(data) {
@@ -220,13 +234,27 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     }
   },
 
+  async updateCampaign(id, data) {
+    set({ actionLoading: true });
+    try {
+      const campaign = await campaignApi.updateCampaign(id, data);
+      await get().fetchCampaigns();
+      if (get().currentCampaign?.id === id) {
+        await get().fetchCampaignDetail(id, { silent: true });
+      }
+      return campaign;
+    } finally {
+      set({ actionLoading: false });
+    }
+  },
+
   async cancelCampaign(id) {
     set({ actionLoading: true });
     try {
       await campaignApi.cancelCampaign(id);
       await get().fetchCampaigns();
       if (get().currentCampaign?.id === id) {
-        await get().fetchCampaignDetail(id);
+        await get().fetchCampaignDetail(id, { silent: true });
       }
     } finally {
       set({ actionLoading: false });
@@ -239,7 +267,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
       await campaignApi.startCampaign(id);
       await get().fetchCampaigns();
       if (get().currentCampaign?.id === id) {
-        await get().fetchCampaignDetail(id);
+        await get().fetchCampaignDetail(id, { silent: true });
       }
     } finally {
       set({ actionLoading: false });
@@ -261,8 +289,11 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     }
   },
 
-  async fetchCampaignDetail(id) {
-    set({ detailLoading: true, detailError: null });
+  async fetchCampaignDetail(id, options) {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      set({ detailLoading: true, detailError: null });
+    }
     try {
       const [campaign, calls] = await Promise.all([
         campaignApi.getCampaign(id),
@@ -278,10 +309,12 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
         detailLoading: false,
       });
     } catch (err) {
-      set({
-        detailError: getErrorMessage(err, "Failed to load campaign"),
-        detailLoading: false,
-      });
+      if (!silent) {
+        set({
+          detailError: getErrorMessage(err, "Failed to load campaign"),
+          detailLoading: false,
+        });
+      }
     }
   },
 
@@ -289,7 +322,7 @@ export const useCampaignStore = create<CampaignStore>((set, get) => ({
     set({ callsPage: page });
     const campaignId = get().currentCampaign?.id;
     if (campaignId) {
-      void get().fetchCampaignDetail(campaignId);
+      get().fetchCampaignDetail(campaignId, { silent: true });
     }
   },
 

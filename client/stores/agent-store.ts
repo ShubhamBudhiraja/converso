@@ -69,7 +69,7 @@ export const useCallerAgentStore = create<CallerAgentStore>((set, get) => ({
 
   setAgentsPage(page) {
     set({ agentsPage: page });
-    void get().fetchAgents(page);
+    get().fetchAgents(page);
   },
 
   async createAgent(data) {
