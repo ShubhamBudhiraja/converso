@@ -1,39 +1,32 @@
-import Link from "next/link";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+import { useUserStore } from "@/stores/user-store";
 
 export default function Home() {
-    return (
-        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center gap-8 px-6 py-16">
-            <div className="space-y-3">
-                <p className="text-sm font-medium text-zinc-500">Converso</p>
-                <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-                    Auth flow is ready
-                </h1>
-                <p className="max-w-xl text-lg text-zinc-600 dark:text-zinc-400">
-                    Sign up, log in, reset your password, and keep separate
-                    sessions on each device.
-                </p>
-            </div>
+    const router = useRouter();
+    const { user, loading, initialized, fetchUser } = useUserStore();
 
-            <div className="flex flex-wrap gap-3">
-                <Link
-                    href="/login"
-                    className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
-                >
-                    Log in
-                </Link>
-                <Link
-                    href="/signup"
-                    className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300"
-                >
-                    Sign up
-                </Link>
-                <Link
-                    href="/home"
-                    className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300"
-                >
-                    Dashboard
-                </Link>
-            </div>
+    useEffect(() => {
+        if (!initialized) {
+            void fetchUser();
+        }
+    }, [initialized, fetchUser]);
+
+    useEffect(() => {
+        if (!initialized || loading) return;
+        router.replace(user ? "/home" : "/login");
+    }, [initialized, loading, user, router]);
+
+    return (
+        <div className="flex min-h-dvh items-center justify-center">
+            <div
+                className="size-40 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100"
+                role="status"
+                aria-label="Loading"
+            />
         </div>
     );
 }

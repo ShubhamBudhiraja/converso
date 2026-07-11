@@ -18,8 +18,10 @@ export function AppHeader({ email, onLogout }: AppHeaderProps) {
                 <Image
                     src="/images/logoo.png"
                     alt="Converso"
-                    width={170}
+                    width={180}
                     height={40}
+                    className="h-8 w-auto"
+                    priority
                 />
             </Link>
             <UserDropdown email={email} onLogout={onLogout} />
